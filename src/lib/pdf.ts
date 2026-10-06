@@ -54,7 +54,7 @@ type Ctx = {
 };
 
 function newCtx(doc: PDFDocument, font: Ctx["font"], bold: Ctx["bold"], logo: PDFImage | null, tipo: string): Ctx {
-  const c: Ctx = { doc, font, bold, page: doc.addPage([W, H]), y: H - 130, num: 1, logo, tipo, pgW: W, pgH: H };
+  const c: Ctx = { doc, font, bold, page: doc.addPage([W, H]), y: H - 104, num: 1, logo, tipo, pgW: W, pgH: H };
   encabezado(c);
   return c;
 }
@@ -64,7 +64,7 @@ async function nueva(c: Ctx): Promise<void> {
   c.page = c.doc.addPage([c.pgW, c.pgH]);
   c.num++;
   encabezado(c);
-  c.y = c.pgH - 130;
+  c.y = c.pgH - 104;
 }
 
 function encabezado(c: Ctx) {
