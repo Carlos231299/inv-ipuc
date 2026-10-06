@@ -33,7 +33,6 @@ export default function Equipos() {
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO, numero: lista.length + 1 })}>+ Unidad</button>
         <a className="btn sec sm" href="/api/reportes?kind=equipos">PDF general</a>
-        <a className="btn sec sm" href="/api/reportes?kind=equipos&format=csv">CSV</a>
       </div>
       {ed ? (
         <div className="card">

@@ -77,9 +77,11 @@ function pie(c: Ctx) {
   p.drawText(`Pág. ${c.num}`, { x: W - M - 40, y: 30, size: 8.5, font: c.font, color: GRAY });
 }
 
-async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][], opts?: { zebra?: boolean }) {
+async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][], opts?: { zebra?: boolean; thumbs?: (PDFImage | null)[] }) {
   const total = cols.reduce((a, x) => a + x.w, 0);
   const ff = c.font, fb = c.bold;
+  const conFoto = !!opts?.thumbs;
+  const rowH = conFoto ? 38 : 17;
   const drawHead = () => {
     let x = M;
     c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: 20, color: NAVY });
@@ -94,18 +96,45 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   for (const f of filas) {
     if (c.y < 70) { await nueva(c); drawHead(); }
     if (opts?.zebra !== false && i % 2 === 1)
-      c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: 17, color: LIGHT });
+      c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: rowH, color: LIGHT });
     let x = M;
     f.forEach((cell, j) => {
-      c.page.drawText(cell.slice(0, 48), { x: x + 4, y: c.y, size: 9, font: ff });
+      if (!(conFoto && j === 0)) {
+        const ty = conFoto ? c.y - 8 : c.y;
+        c.page.drawText(cell.slice(0, 48), { x: x + 4, y: ty, size: 9, font: ff });
+      }
       x += cols[j].w;
     });
+    if (conFoto) {
+      const img = opts!.thumbs![i];
+      if (img) {
+        const sc = Math.min(48 / img.width, 30 / img.height);
+        const w = img.width * sc, h = img.height * sc;
+        c.page.drawImage(img, { x: M + (cols[0].w - w) / 2, y: c.y - 2 - h, width: w, height: h });
+      } else {
+        c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: c.y - 8, size: 9, font: ff, color: GRAY });
+      }
+    }
     // líneas de grilla
     let gx = M;
     c.page.drawLine({ start: { x: M, y: c.y - 4 }, end: { x: M + total, y: c.y - 4 }, thickness: 0.4, color: GRAY });
-    for (const col of cols) { gx += col.w; c.page.drawLine({ start: { x: gx, y: c.y - 4 }, end: { x: gx, y: c.y + 13 }, thickness: 0.4, color: GRAY }); }
-    c.y -= 17; i++;
+    for (const col of cols) { gx += col.w; c.page.drawLine({ start: { x: gx, y: c.y - 4 }, end: { x: gx, y: c.y + rowH - 4 }, thickness: 0.4, color: GRAY }); }
+    c.y -= rowH; i++;
   }
+}
+
+// Carga miniaturas de fotos (rutas relativas a DATA_DIR) con caché
+async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)[]): Promise<(PDFImage | null)[]> {
+  const cache = new Map<string, PDFImage | null>();
+  const out: (PDFImage | null)[] = [];
+  for (const r of rutas) {
+    if (!r) { out.push(null); continue; }
+    if (!cache.has(r)) {
+      cache.set(r, await embedImg(doc, join(DATA_DIR, r)));
+    }
+    out.push(cache.get(r) ?? null);
+  }
+  return out;
 }
 
 async function titulo2(c: Ctx, t: string) {
@@ -175,8 +204,10 @@ export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promi
   if (kind === "equipos" || kind === "general") {
     if (kind === "general") await titulo2(c, "4. Equipos de sonido");
     const eqs = d.prepare("SELECT * FROM equipos ORDER BY tipo, numero").all() as Record<string, unknown>[];
-    await tabla(c, [{ t: "Unidad", w: 190 }, { t: "Estado", w: 95 }, { t: "Ubicación", w: 95 }, { t: "Código", w: 135 }],
-      eqs.map((e) => [String(e.nombre), eq(String(e.estado)), String(e.ubicacion), String(e.codigo)]));
+    const thumbs = await cargarThumbs(doc, eqs.map((e) => (e.foto ? String(e.foto) : null)));
+    await tabla(c, [{ t: "Foto", w: 56 }, { t: "Unidad", w: 168 }, { t: "Estado", w: 85 }, { t: "Ubicación", w: 80 }, { t: "Código", w: 126 }],
+      eqs.map((e) => ["", String(e.nombre), eq(String(e.estado)), String(e.ubicacion), String(e.codigo)]),
+      { thumbs });
     const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
     await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
   }
@@ -241,24 +272,6 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   }
   pie(c);
   return doc.save();
-}
-
-export function buildCsv(kind: "personal" | "alcancia" | "equipos"): string {
-  const d = db();
-  if (kind === "personal") {
-    const rows = d.prepare("SELECT nombre, estado, rol, telefono FROM integrantes ORDER BY nombre").all() as Record<string, unknown>[];
-    return [`${TITULOS.personal} — ${HEADER_IGLESIA}`, "nombre,estado,rol,telefono",
-      ...rows.map((r) => `"${r.nombre}","${ep(String(r.estado))}","${r.rol}","${r.telefono}"`)].join("\n");
-  }
-  if (kind === "alcancia") {
-    const rows = d.prepare(`SELECT i.nombre, a.dio, a.monto FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
-    return [`${TITULOS.alcancia} — ${HEADER_IGLESIA}`, "nombre,estado,monto",
-      ...rows.map((r) => `"${r.nombre}",${r.dio ? "DIO" : "PENDIENTE"},${r.dio ? r.monto : 0}`),
-      `TOTAL,,${totalRecogido()}`].join("\n");
-  }
-  const rows = d.prepare("SELECT nombre, estado, ubicacion, codigo FROM equipos ORDER BY tipo, numero").all() as Record<string, unknown>[];
-  return [`${TITULOS.equipos} — ${HEADER_IGLESIA}`, "unidad,estado,ubicacion,codigo",
-    ...rows.map((r) => `"${r.nombre}","${eq(String(r.estado))}","${r.ubicacion}","${r.codigo}"`)].join("\n");
 }
 
 function nombreDe(id: number | null): string {

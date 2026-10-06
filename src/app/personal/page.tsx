@@ -49,7 +49,6 @@ export default function Personal() {
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO })}>+ Nuevo</button>
         <a className="btn sec sm" href="/api/reportes?kind=personal">PDF general</a>
-        <a className="btn sec sm" href="/api/reportes?kind=personal&format=csv">CSV</a>
       </div>
       <p className="mut">{fil.length} personas</p>
 

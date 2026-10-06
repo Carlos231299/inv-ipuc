@@ -25,7 +25,6 @@ export default function Alcancia() {
       <p className="mut">Contribución voluntaria · montos visibles · Total: <b>{fmtCOP(total)}</b> · Dieron {dieron}/{lista.length}</p>
       <div className="btnrow">
         <a className="btn sec sm" href="/api/reportes?kind=alcancia">PDF general</a>
-        <a className="btn sec sm" href="/api/reportes?kind=alcancia&format=csv">CSV Excel</a>
       </div>
       {lista.map((i) => (
         <div key={i.id} className="card">

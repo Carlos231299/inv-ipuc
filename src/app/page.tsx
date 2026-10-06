@@ -61,6 +61,7 @@ export default function Inicio() {
       <div className="btnrow">
         <a className="btn sm" href="/api/reportes?kind=general">📄 PDF resumen general</a>
       </div>
+
       <p className="mut">Generado por Gerson Acosta – Líder de Música</p>
     </Shell>
   );
