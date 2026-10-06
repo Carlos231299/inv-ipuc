@@ -1,8 +1,17 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage } from "pdf-lib";
 import { readFileSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
-import { DATA_DIR, db, totalRecogido } from "./db";
-import { eq, ep, fmtCOP, HEADER_IGLESIA, FOOTER_FIRMA } from "./etiquetas";
+import { DATA_DIR, db, totalRecogido, ajuste } from "./db";
+import { eq, ep, fmtCOP, HEADER_IGLESIA } from "./etiquetas";
+
+export function firmaTexto(): string {
+  const n = ajuste("firma_nombre") ?? "Gerson Acosta";
+  const c = ajuste("firma_cargo") ?? "Líder de Música";
+  return `Generado por ${n} – ${c}`;
+}
+export function firmaNombre(): string {
+  return ajuste("firma_nombre") ?? "Gerson Acosta";
+}
 
 const W = 595, H = 842, M = 40;
 const NAVY = rgb(0.13, 0.22, 0.42);
@@ -36,10 +45,9 @@ type Ctx = {
   logo: PDFImage | null; tipo: string; pgW: number; pgH: number;
 };
 
-function newCtx(doc: PDFDocument, font: Ctx["font"], bold: Ctx["bold"], logo: PDFImage | null, tipo: string, landscape: boolean): Ctx {
-  const pgW = landscape ? H : W, pgH = landscape ? W : H;
-  const c: Ctx = { doc, font, bold, page: doc.addPage([pgW, pgH]), y: pgH - 130, num: 1, logo, tipo, pgW, pgH };
-  encabezado(c); marcaAgua(c);
+function newCtx(doc: PDFDocument, font: Ctx["font"], bold: Ctx["bold"], logo: PDFImage | null, tipo: string): Ctx {
+  const c: Ctx = { doc, font, bold, page: doc.addPage([W, H]), y: H - 130, num: 1, logo, tipo, pgW: W, pgH: H };
+  encabezado(c);
   return c;
 }
 
@@ -48,7 +56,6 @@ async function nueva(c: Ctx): Promise<void> {
   c.page = c.doc.addPage([c.pgW, c.pgH]);
   c.num++;
   encabezado(c);
-  marcaAgua(c);
   c.y = c.pgH - 130;
 }
 
@@ -68,21 +75,23 @@ function encabezado(c: Ctx) {
   p.drawLine({ start: { x: M, y: pgH - 86 }, end: { x: pgW - M, y: pgH - 86 }, thickness: 1.5, color: NAVY });
 }
 
-function marcaAgua(c: Ctx) {
+function marcaAgua(c: Ctx, opacidad = 0.09) {
   if (!c.logo) return;
   const p = c.page;
   const { pgW, pgH } = c;
   const sc = Math.min(320 / c.logo.width, 320 / c.logo.height);
   p.drawImage(c.logo, {
     x: pgW / 2 - (c.logo.width * sc) / 2, y: pgH / 2 - (c.logo.height * sc) / 2,
-    width: c.logo.width * sc, height: c.logo.height * sc, opacity: 0.09,
+    width: c.logo.width * sc, height: c.logo.height * sc, opacity: opacidad,
   });
 }
 
 function pie(c: Ctx) {
   const p = c.page;
+  // Marca de agua AL FINAL (encima del contenido, tenue): no la cortan tablas ni fotos
+  marcaAgua(c, 0.07);
   p.drawLine({ start: { x: M, y: 44 }, end: { x: c.pgW - M, y: 44 }, thickness: 0.75, color: NAVY });
-  p.drawText(`${FOOTER_FIRMA}  ·  ${fechaHora()}`, { x: M, y: 30, size: 8.5, font: c.font, color: GRAY });
+  p.drawText(`${firmaTexto()}  ·  ${fechaHora()}`, { x: M, y: 30, size: 8.5, font: c.font, color: GRAY });
   p.drawText(`Pág. ${c.num}`, { x: c.pgW - M - 40, y: 30, size: 8.5, font: c.font, color: GRAY });
 }
 
@@ -90,17 +99,16 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   const total = cols.reduce((a, x) => a + x.w, 0);
   const ff = c.font, fb = c.bold;
   const conFoto = !!opts?.thumbs;
-  const apaisado = c.pgW > c.pgH;
-  const rowH = conFoto ? (apaisado ? 48 : 38) : 17;
-  const thumbMaxW = apaisado ? 58 : 48, thumbMaxH = apaisado ? 38 : 30;
+  const rowH = conFoto ? 40 : 22;
+  const thumbMaxW = 50, thumbMaxH = 32;
   const drawHead = () => {
     let x = M;
-    c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: 20, color: NAVY });
+    c.page.drawRectangle({ x: M, y: c.y - 6, width: total, height: 24, color: NAVY });
     cols.forEach((col) => {
-      c.page.drawText(col.t, { x: x + 4, y: c.y, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+      c.page.drawText(col.t.toUpperCase(), { x: x + 6, y: c.y, size: 9.5, font: fb, color: rgb(1, 1, 1) });
       x += col.w;
     });
-    c.y -= 20;
+    c.y -= 24;
   };
   drawHead();
   let i = 0;
@@ -112,7 +120,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
     f.forEach((cell, j) => {
       if (!(conFoto && j === 0)) {
         const ty = conFoto ? c.y - Math.round(rowH / 2) - 3 : c.y;
-        c.page.drawText(cell.slice(0, 52), { x: x + 6, y: ty, size: conFoto && apaisado ? 10 : 9, font: ff });
+        c.page.drawText(cell.slice(0, 52), { x: x + 6, y: ty, size: 9, font: ff });
       }
       x += cols[j].w;
     });
@@ -126,10 +134,8 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
         c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: c.y - 10, size: 10, font: ff, color: GRAY });
       }
     }
-    // líneas de grilla
-    let gx = M;
-    c.page.drawLine({ start: { x: M, y: c.y - 4 }, end: { x: M + total, y: c.y - 4 }, thickness: 0.4, color: GRAY });
-    for (const col of cols) { gx += col.w; c.page.drawLine({ start: { x: gx, y: c.y - 4 }, end: { x: gx, y: c.y + rowH - 4 }, thickness: 0.4, color: GRAY }); }
+    // Solo hairline horizontal (sin grilla vertical): look limpio, no "Word"
+    c.page.drawLine({ start: { x: M, y: c.y - 4 }, end: { x: M + total, y: c.y - 4 }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
     c.y -= rowH; i++;
   }
 }
@@ -207,8 +213,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const lf = logoFile();
   const logo = lf ? await embedImg(doc, lf) : null;
-  const apaisado = kind === "equipos" || kind === "general";
-  const c = newCtx(doc, font, bold, logo, TITULOS[kind], apaisado);
+  const c = newCtx(doc, font, bold, logo, TITULOS[kind]);
 
   const d = db();
   if (kind === "personal" || kind === "general") {
@@ -218,9 +223,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       String(r.nombre), ep(String(r.estado)),
       nombreDe(Number(r.grupo_id)), String(r.rol), String(r.telefono || "—"),
     ]);
-    await tabla(c, apaisado
-      ? [{ t: "Nombre", w: 220 }, { t: "Estado", w: 130 }, { t: "Grupo", w: 180 }, { t: "Rol", w: 90 }, { t: "Teléfono", w: 120 }]
-      : [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
+    await tabla(c, [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
   }
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await titulo2(c, "2. Grupos de voces");
@@ -242,9 +245,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     const rows = d.prepare(
       `SELECT i.nombre, a.dio, a.monto FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
        WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
-    await tabla(c, apaisado
-      ? [{ t: "Integrante", w: 380 }, { t: "Estado", w: 150 }, { t: "Monto", w: 190 }]
-      : [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
+    await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
       rows.map((r) => [r.nombre, r.dio ? "Dio" : "Pendiente", r.dio ? fmtCOP(r.monto) : "—"]));
     await parrafo(c, `Total recogido: ${fmtCOP(totalRecogido())} · Dieron ${rows.filter((r) => r.dio).length} de ${rows.length}.`);
   }
@@ -275,7 +276,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await parrafo(c, "Se deja constancia del estado actual del Grupo de Alabanza, su personal,");
     await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
     c.y -= 30;
-    await parrafo(c, "Entregado por: Gerson Acosta");
+    await parrafo(c, `Entregado por: ${firmaNombre()}`);
     await parrafo(c, "Recibido por: ____________________     Firma: __________");
   }
   pie(c);
@@ -289,7 +290,7 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   const lf = logoFile();
   const logo = lf ? await embedImg(doc, lf) : null;
   const nombre = tipo === "integrante" ? "Ficha de Integrante" : "Ficha de Equipo";
-  const c = newCtx(doc, font, bold, logo, nombre, false);
+  const c = newCtx(doc, font, bold, logo, nombre);
   const d = db();
   if (tipo === "integrante") {
     const r = d.prepare("SELECT * FROM integrantes WHERE id=?").get(id) as Record<string, unknown> | undefined;
