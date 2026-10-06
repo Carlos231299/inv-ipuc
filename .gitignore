@@ -8,3 +8,5 @@ data/.secret
 data/fotos/
 data/escudo/
 .env*.local
+
+tsconfig.tsbuildinfo
