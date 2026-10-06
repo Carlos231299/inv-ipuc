@@ -33,55 +33,66 @@ type Ctx = {
   doc: PDFDocument; font: Awaited<ReturnType<PDFDocument["embedFont"]>>;
   bold: Awaited<ReturnType<PDFDocument["embedFont"]>>;
   page: ReturnType<PDFDocument["addPage"]>; y: number; num: number;
-  logo: PDFImage | null; tipo: string;
+  logo: PDFImage | null; tipo: string; pgW: number; pgH: number;
 };
+
+function newCtx(doc: PDFDocument, font: Ctx["font"], bold: Ctx["bold"], logo: PDFImage | null, tipo: string, landscape: boolean): Ctx {
+  const pgW = landscape ? H : W, pgH = landscape ? W : H;
+  const c: Ctx = { doc, font, bold, page: doc.addPage([pgW, pgH]), y: pgH - 130, num: 1, logo, tipo, pgW, pgH };
+  encabezado(c); marcaAgua(c);
+  return c;
+}
 
 async function nueva(c: Ctx): Promise<void> {
   pie(c);
-  c.page = c.doc.addPage([W, H]);
+  c.page = c.doc.addPage([c.pgW, c.pgH]);
   c.num++;
   encabezado(c);
   marcaAgua(c);
-  c.y = H - 130;
+  c.y = c.pgH - 130;
 }
 
 function encabezado(c: Ctx) {
   const p = c.page;
+  const { pgW, pgH } = c;
   // Escudo pequeño + títulos
   let tx = M;
   if (c.logo) {
     const s = 44;
     const sc = Math.min(s / c.logo.width, s / c.logo.height);
-    p.drawImage(c.logo, { x: M, y: H - 78, width: c.logo.width * sc, height: c.logo.height * sc });
+    p.drawImage(c.logo, { x: M, y: pgH - 78, width: c.logo.width * sc, height: c.logo.height * sc });
     tx = M + 54;
   }
-  p.drawText(`Reporte de ${c.tipo}`, { x: tx, y: H - 52, size: 17, font: c.bold, color: NAVY });
-  p.drawText(HEADER_IGLESIA, { x: tx, y: H - 70, size: 11, font: c.font, color: GRAY });
-  p.drawLine({ start: { x: M, y: H - 86 }, end: { x: W - M, y: H - 86 }, thickness: 1.5, color: NAVY });
+  p.drawText(`Reporte de ${c.tipo}`, { x: tx, y: pgH - 52, size: 17, font: c.bold, color: NAVY });
+  p.drawText(HEADER_IGLESIA, { x: tx, y: pgH - 70, size: 11, font: c.font, color: GRAY });
+  p.drawLine({ start: { x: M, y: pgH - 86 }, end: { x: pgW - M, y: pgH - 86 }, thickness: 1.5, color: NAVY });
 }
 
 function marcaAgua(c: Ctx) {
   if (!c.logo) return;
   const p = c.page;
+  const { pgW, pgH } = c;
   const sc = Math.min(320 / c.logo.width, 320 / c.logo.height);
   p.drawImage(c.logo, {
-    x: W / 2 - (c.logo.width * sc) / 2, y: H / 2 - (c.logo.height * sc) / 2,
+    x: pgW / 2 - (c.logo.width * sc) / 2, y: pgH / 2 - (c.logo.height * sc) / 2,
     width: c.logo.width * sc, height: c.logo.height * sc, opacity: 0.09,
   });
 }
 
 function pie(c: Ctx) {
   const p = c.page;
-  p.drawLine({ start: { x: M, y: 44 }, end: { x: W - M, y: 44 }, thickness: 0.75, color: NAVY });
+  p.drawLine({ start: { x: M, y: 44 }, end: { x: c.pgW - M, y: 44 }, thickness: 0.75, color: NAVY });
   p.drawText(`${FOOTER_FIRMA}  ·  ${fechaHora()}`, { x: M, y: 30, size: 8.5, font: c.font, color: GRAY });
-  p.drawText(`Pág. ${c.num}`, { x: W - M - 40, y: 30, size: 8.5, font: c.font, color: GRAY });
+  p.drawText(`Pág. ${c.num}`, { x: c.pgW - M - 40, y: 30, size: 8.5, font: c.font, color: GRAY });
 }
 
 async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][], opts?: { zebra?: boolean; thumbs?: (PDFImage | null)[] }) {
   const total = cols.reduce((a, x) => a + x.w, 0);
   const ff = c.font, fb = c.bold;
   const conFoto = !!opts?.thumbs;
-  const rowH = conFoto ? 38 : 17;
+  const apaisado = c.pgW > c.pgH;
+  const rowH = conFoto ? (apaisado ? 48 : 38) : 17;
+  const thumbMaxW = apaisado ? 58 : 48, thumbMaxH = apaisado ? 38 : 30;
   const drawHead = () => {
     let x = M;
     c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: 20, color: NAVY });
@@ -100,19 +111,19 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
     let x = M;
     f.forEach((cell, j) => {
       if (!(conFoto && j === 0)) {
-        const ty = conFoto ? c.y - 8 : c.y;
-        c.page.drawText(cell.slice(0, 48), { x: x + 4, y: ty, size: 9, font: ff });
+        const ty = conFoto ? c.y - Math.round(rowH / 2) - 3 : c.y;
+        c.page.drawText(cell.slice(0, 52), { x: x + 6, y: ty, size: conFoto && apaisado ? 10 : 9, font: ff });
       }
       x += cols[j].w;
     });
     if (conFoto) {
       const img = opts!.thumbs![i];
       if (img) {
-        const sc = Math.min(48 / img.width, 30 / img.height);
+        const sc = Math.min(thumbMaxW / img.width, thumbMaxH / img.height);
         const w = img.width * sc, h = img.height * sc;
-        c.page.drawImage(img, { x: M + (cols[0].w - w) / 2, y: c.y - 2 - h, width: w, height: h });
+        c.page.drawImage(img, { x: M + (cols[0].w - w) / 2, y: c.y - 4 - h, width: w, height: h });
       } else {
-        c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: c.y - 8, size: 9, font: ff, color: GRAY });
+        c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: c.y - 10, size: 10, font: ff, color: GRAY });
       }
     }
     // líneas de grilla
@@ -158,14 +169,14 @@ export const TITULOS: Record<ReportKind, string> = {
   general: "Resumen General del Grupo de Alabanza",
 };
 
-export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promise<Uint8Array> {
+export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const lf = logoFile();
   const logo = lf ? await embedImg(doc, lf) : null;
-  const c: Ctx = { doc, font, bold, page: doc.addPage([W, H]), y: H - 130, num: 1, logo, tipo: TITULOS[kind] };
-  encabezado(c); marcaAgua(c);
+  const apaisado = kind === "equipos" || kind === "general";
+  const c = newCtx(doc, font, bold, logo, TITULOS[kind], apaisado);
 
   const d = db();
   if (kind === "personal" || kind === "general") {
@@ -175,7 +186,9 @@ export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promi
       String(r.nombre), ep(String(r.estado)),
       nombreDe(Number(r.grupo_id)), String(r.rol), String(r.telefono || "—"),
     ]);
-    await tabla(c, [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
+    await tabla(c, apaisado
+      ? [{ t: "Nombre", w: 220 }, { t: "Estado", w: 130 }, { t: "Grupo", w: 180 }, { t: "Rol", w: 90 }, { t: "Teléfono", w: 120 }]
+      : [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
   }
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await titulo2(c, "2. Grupos de voces");
@@ -197,7 +210,9 @@ export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promi
     const rows = d.prepare(
       `SELECT i.nombre, a.dio, a.monto FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
        WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
-    await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
+    await tabla(c, apaisado
+      ? [{ t: "Integrante", w: 380 }, { t: "Estado", w: 150 }, { t: "Monto", w: 190 }]
+      : [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
       rows.map((r) => [r.nombre, r.dio ? "Dio" : "Pendiente", r.dio ? fmtCOP(r.monto) : "—"]));
     await parrafo(c, `Total recogido: ${fmtCOP(totalRecogido())} · Dieron ${rows.filter((r) => r.dio).length} de ${rows.length}.`);
   }
@@ -205,7 +220,9 @@ export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promi
     if (kind === "general") await titulo2(c, "4. Equipos de sonido");
     const eqs = d.prepare("SELECT * FROM equipos ORDER BY tipo, numero").all() as Record<string, unknown>[];
     const thumbs = await cargarThumbs(doc, eqs.map((e) => (e.foto ? String(e.foto) : null)));
-    await tabla(c, [{ t: "Foto", w: 56 }, { t: "Unidad", w: 168 }, { t: "Estado", w: 85 }, { t: "Ubicación", w: 80 }, { t: "Código", w: 126 }],
+    await tabla(c, apaisado
+      ? [{ t: "Foto", w: 70 }, { t: "Unidad", w: 260 }, { t: "Estado", w: 130 }, { t: "Ubicación", w: 130 }, { t: "Código", w: 150 }]
+      : [{ t: "Foto", w: 56 }, { t: "Unidad", w: 168 }, { t: "Estado", w: 85 }, { t: "Ubicación", w: 80 }, { t: "Código", w: 126 }],
       eqs.map((e) => ["", String(e.nombre), eq(String(e.estado)), String(e.ubicacion), String(e.codigo)]),
       { thumbs });
     const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
@@ -219,10 +236,6 @@ export async function buildPdf(kind: ReportKind, extra?: { id?: number }): Promi
     await parrafo(c, "Entregado por: Gerson Acosta");
     await parrafo(c, "Recibido por: ____________________     Firma: __________");
   }
-  if (extra?.id && (kind === "personal" || kind === "equipos")) {
-    // Ficha individual: se antepone foto + detalle (las tablas ya salieron arriba; aquí solo nota)
-    void 0;
-  }
   pie(c);
   return doc.save();
 }
@@ -234,14 +247,15 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   const lf = logoFile();
   const logo = lf ? await embedImg(doc, lf) : null;
   const nombre = tipo === "integrante" ? "Ficha de Integrante" : "Ficha de Equipo";
-  const c: Ctx = { doc, font, bold, page: doc.addPage([W, H]), y: H - 130, num: 1, logo, tipo: nombre };
-  encabezado(c); marcaAgua(c);
+  const c = newCtx(doc, font, bold, logo, nombre, false);
   const d = db();
   if (tipo === "integrante") {
     const r = d.prepare("SELECT * FROM integrantes WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!r) throw new Error("No existe");
-    if (r.foto && existsSync(String(r.foto))) {
-      const img = await embedImg(doc, String(r.foto));
+    const fotoRel = r.foto ? String(r.foto) : null;
+    const fotoFull = fotoRel && existsSync(join(DATA_DIR, fotoRel)) ? join(DATA_DIR, fotoRel) : null;
+    if (fotoFull) {
+      const img = await embedImg(doc, fotoFull);
       if (img) {
         const sc = Math.min(180 / img.width, 180 / img.height);
         c.page.drawImage(img, { x: M, y: c.y - 180 * sc, width: img.width * sc, height: img.height * sc });
@@ -256,13 +270,20 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   } else {
     const r = d.prepare("SELECT * FROM equipos WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!r) throw new Error("No existe");
-    if (r.foto && existsSync(String(r.foto))) {
-      const img = await embedImg(doc, String(r.foto));
+    const fotoRel = r.foto ? String(r.foto) : null;
+    const fotoFull = fotoRel && existsSync(join(DATA_DIR, fotoRel)) ? join(DATA_DIR, fotoRel) : null;
+    if (fotoFull) {
+      const img = await embedImg(doc, fotoFull);
       if (img) {
-        const sc = Math.min(220 / img.width, 220 / img.height);
-        c.page.drawImage(img, { x: M, y: c.y - 220 * sc, width: img.width * sc, height: img.height * sc });
-        c.y -= 220 * sc + 14;
+        const sc = Math.min(260 / img.width, 220 / img.height);
+        const w = img.width * sc, h = img.height * sc;
+        // Marco alrededor de la foto
+        c.page.drawRectangle({ x: M - 4, y: c.y - h - 4, width: w + 8, height: h + 8, borderColor: NAVY, borderWidth: 1 });
+        c.page.drawImage(img, { x: M, y: c.y - h, width: w, height: h });
+        c.y -= h + 18;
       }
+    } else {
+      await parrafo(c, "(Sin foto registrada para esta unidad)");
     }
     await tabla(c, [{ t: "Campo", w: 150 }, { t: "Valor", w: 365 }], [
       ["Unidad", String(r.nombre)], ["Tipo", String(r.tipo)], ["Número", `#${r.numero}`],
