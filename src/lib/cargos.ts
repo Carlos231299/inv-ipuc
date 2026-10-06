@@ -8,3 +8,13 @@ export const CARGOS: { grupo: string; cargos: string[] }[] = [
   },
 ];
 export const CARGOS_TODOS = CARGOS.flatMap((g) => g.cargos);
+
+// Ministerios de la iglesia local con su enfoque (módulo Líderes)
+export const MINISTERIOS: { nombre: string; enfoque: string }[] = [
+  { nombre: "Jóvenes (Conquistadores)", enfoque: "Actividades espirituales y sociales de la juventud" },
+  { nombre: "Damas (Dorcas)", enfoque: "Trabajo con las mujeres de la congregación" },
+  { nombre: "Caballeros", enfoque: "Varones de la iglesia" },
+  { nombre: "Escuela Dominical", enfoque: "Enseñanza bíblica de niños y nuevos creyentes" },
+  { nombre: "Misiones y Evangelismo", enfoque: "Predicación en nuevos sectores y alcance social" },
+  { nombre: "Alabanza", enfoque: "Grupo de músicos y cantores para los cultos" },
+];

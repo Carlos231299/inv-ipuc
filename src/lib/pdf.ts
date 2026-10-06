@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import { DATA_DIR, db, totalRecogido, ajuste } from "./db";
 import { eq, ep, fmtCOP, HEADER_IGLESIA } from "./etiquetas";
+import { MINISTERIOS } from "./cargos";
 
 export function firmaTexto(): string {
   const n = ajuste("firma_nombre") ?? "Gerson Acosta";
@@ -166,14 +167,30 @@ async function parrafo(c: Ctx, t: string) {
   c.y -= 16;
 }
 
-export type ReportKind = "personal" | "grupos" | "alcancia" | "equipos" | "general";
+export type ReportKind = "personal" | "grupos" | "alcancia" | "equipos" | "lideres" | "general";
 export const TITULOS: Record<ReportKind, string> = {
   personal: "Personal del Grupo de Alabanza",
   grupos: "Grupos de Voces y Rotación",
   alcancia: "Alcancía / Voto (montos visibles)",
   equipos: "Inventario de Equipos de Sonido",
-  general: "Resumen General del Grupo de Alabanza",
+  lideres: "Liderazgo por Ministerios",
+  general: "Resumen General — Inventario IPUC 19",
 };
+
+async function seccionLideres(c: Ctx, titulo: string | null) {
+  if (titulo) await titulo2(c, titulo);
+  for (const m of MINISTERIOS) {
+    const ls = db().prepare("SELECT nombre, cargo, telefono FROM lideres WHERE ministerio=? ORDER BY nombre").all(m.nombre) as { nombre: string; cargo: string; telefono: string }[];
+    await parrafo(c, `${m.nombre} — ${m.enfoque}`);
+    if (ls.length) {
+      await tabla(c, [{ t: "Nombre", w: 215 }, { t: "Cargo", w: 180 }, { t: "Teléfono", w: 120 }],
+        ls.map((l) => [l.nombre, l.cargo || "—", l.telefono || "—"]));
+    } else {
+      await parrafo(c, "Sin líderes registrados.");
+    }
+    c.y -= 6;
+  }
+}
 
 function centrado(c: Ctx, texto: string, size: number, font: Ctx["font"]): number {
   return (c.pgW - font.widthOfTextAtSize(texto, size)) / 2;
@@ -271,9 +288,13 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await parrafo(c, "Fin del inventario.");
     }
   }
+  if (kind === "lideres") {
+    await seccionLideres(c, null);
+  }
   if (kind === "general") {
-    await titulo2(c, "5. Entrega del área");
-    await parrafo(c, "Se deja constancia del estado actual del Grupo de Alabanza, su personal,");
+    await seccionLideres(c, "5. Liderazgo por ministerios");
+    await titulo2(c, "6. Entrega del área");
+    await parrafo(c, "Se deja constancia del estado actual del inventario, liderazgo, personal,");
     await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
     c.y -= 30;
     await parrafo(c, `Entregado por: ${firmaNombre()}`);
