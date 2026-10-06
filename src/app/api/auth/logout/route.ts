@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { COOKIE } from "@/lib/auth";
 
-export async function GET(req: Request) {
-  // Redirección relativa al host entrante (funciona tras nginx y en local;
-  // APP_URL apuntaba al :3000 interno y dejaba la salida en blanco)
-  const res = NextResponse.redirect(new URL("/login", req.url));
+export async function GET() {
+  // Location RELATIVA: el navegador la resuelve contra el host real
+  // (nuevo URL con req.url heredaba el host interno 0.0.0.0:3000 tras nginx)
+  const res = new NextResponse(null, {
+    status: 307,
+    headers: { Location: "/login" },
+  });
   res.cookies.set(COOKIE, "", { path: "/", maxAge: 0 });
   return res;
 }
