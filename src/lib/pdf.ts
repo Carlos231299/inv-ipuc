@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import { DATA_DIR, db, totalRecogido, ajuste } from "./db";
 import { eq, ep, fmtCOP, HEADER_IGLESIA } from "./etiquetas";
-import { MINISTERIOS } from "./cargos";
+
 
 export function firmaTexto(): string {
   const n = ajuste("firma_nombre") ?? "Gerson Acosta";
@@ -99,6 +99,9 @@ function pie(c: Ctx) {
 async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][], opts?: { zebra?: boolean; thumbs?: (PDFImage | null)[] }) {
   const total = cols.reduce((a, x) => a + x.w, 0);
   const ff = c.font, fb = c.bold;
+  // Aire antes de cada tabla para que el texto previo no se meta bajo el encabezado
+  if (c.y < 120) await nueva(c);
+  c.y -= 8;
   const conFoto = !!opts?.thumbs;
   const rowH = conFoto ? 40 : 22;
   const thumbMaxW = 50, thumbMaxH = 32;
@@ -167,61 +170,46 @@ async function parrafo(c: Ctx, t: string) {
   c.y -= 16;
 }
 
-export type ReportKind = "personal" | "grupos" | "alcancia" | "equipos" | "lideres" | "general";
+export type ReportKind = "personal" | "grupos" | "alcancia" | "equipos" | "general";
 export const TITULOS: Record<ReportKind, string> = {
   personal: "Personal del Grupo de Alabanza",
   grupos: "Grupos de Voces y Rotación",
   alcancia: "Alcancía / Voto (montos visibles)",
   equipos: "Inventario de Equipos de Sonido",
-  lideres: "Liderazgo por Ministerios",
   general: "Resumen General — Inventario IPUC 19",
 };
-
-async function seccionLideres(c: Ctx, titulo: string | null) {
-  if (titulo) await titulo2(c, titulo);
-  for (const m of MINISTERIOS) {
-    const ls = db().prepare("SELECT nombre, cargo, telefono FROM lideres WHERE ministerio=? ORDER BY nombre").all(m.nombre) as { nombre: string; cargo: string; telefono: string }[];
-    await parrafo(c, `${m.nombre} — ${m.enfoque}`);
-    if (ls.length) {
-      await tabla(c, [{ t: "Nombre", w: 215 }, { t: "Cargo", w: 180 }, { t: "Teléfono", w: 120 }],
-        ls.map((l) => [l.nombre, l.cargo || "—", l.telefono || "—"]));
-    } else {
-      await parrafo(c, "Sin líderes registrados.");
-    }
-    c.y -= 6;
-  }
-}
 
 function centrado(c: Ctx, texto: string, size: number, font: Ctx["font"]): number {
   return (c.pgW - font.widthOfTextAtSize(texto, size)) / 2;
 }
 
-// Hoja breve por unidad: nombre centrado + foto centrada con marco + datos concisos
-async function hojaEquipo(c: Ctx, e: Record<string, unknown>, img: PDFImage | null) {
-  const nombre = String(e.nombre);
+// Contenido de ficha de equipo (misma estructura en individual y general):
+// nombre + foto centrada con marco + <br> + tabla Campo/Valor completa
+async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, unknown>) {
+  const nombre = String(r.nombre);
   c.page.drawText(nombre, { x: centrado(c, nombre, 16, c.bold), y: c.y, size: 16, font: c.bold, color: NAVY });
   c.y -= 28;
+  const fotoRel = r.foto ? String(r.foto) : null;
+  const fotoFull = fotoRel && existsSync(join(DATA_DIR, fotoRel)) ? join(DATA_DIR, fotoRel) : null;
+  const img = fotoFull ? await embedImg(doc, fotoFull) : null;
   if (img) {
-    const sc = Math.min(360 / img.width, 240 / img.height);
+    const sc = Math.min(280 / img.width, 240 / img.height);
     const w = img.width * sc, h = img.height * sc;
     const x = (c.pgW - w) / 2;
-    c.page.drawRectangle({ x: x - 5, y: c.y - h - 5, width: w + 10, height: h + 10, borderColor: NAVY, borderWidth: 1.25 });
+    c.page.drawRectangle({ x: x - 4, y: c.y - h - 4, width: w + 8, height: h + 8, borderColor: NAVY, borderWidth: 1 });
     c.page.drawImage(img, { x, y: c.y - h, width: w, height: h });
-    c.y -= h + 22;
+    c.y -= h + 18;
   } else {
     const t = "(Sin foto registrada para esta unidad)";
     c.page.drawText(t, { x: centrado(c, t, 11, c.font), y: c.y, size: 11, font: c.font, color: GRAY });
     c.y -= 26;
   }
-  const info = `Estado: ${eq(String(e.estado))}      Ubicación: ${String(e.ubicacion)}      Código: ${String(e.codigo || "—")}`;
-  c.page.drawText(info.slice(0, 110), { x: centrado(c, info.slice(0, 110), 11.5, c.font), y: c.y, size: 11.5, font: c.font });
-  c.y -= 20;
-  const obs = String(e.observaciones || "").trim();
-  if (obs) {
-    const t = `Obs: ${obs}`.slice(0, 110);
-    c.page.drawText(t, { x: centrado(c, t, 10, c.font), y: c.y, size: 10, font: c.font, color: GRAY });
-    c.y -= 18;
-  }
+  c.y -= 8; // <br> entre imagen y tabla
+  await tabla(c, [{ t: "Campo", w: 150 }, { t: "Valor", w: 365 }], [
+    ["Unidad", String(r.nombre)], ["Tipo", String(r.tipo)], ["Número", `#${r.numero}`],
+    ["Estado", eq(String(r.estado))], ["Ubicación", String(r.ubicacion)],
+    ["Código", String(r.codigo)], ["Observaciones", String(r.observaciones || "—")],
+  ]);
 }
 
 export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
@@ -278,9 +266,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     for (const e of eqs) {
       if (!primera) await nueva(c);
       primera = false;
-      const fr = e.foto ? String(e.foto) : null;
-      const full = fr && existsSync(join(DATA_DIR, fr)) ? join(DATA_DIR, fr) : null;
-      await hojaEquipo(c, e, full ? await embedImg(doc, full) : null);
+      await contenidoFichaEquipo(c, doc, e);
     }
     if (kind === "equipos") {
       await nueva(c);
@@ -288,12 +274,8 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await parrafo(c, "Fin del inventario.");
     }
   }
-  if (kind === "lideres") {
-    await seccionLideres(c, null);
-  }
   if (kind === "general") {
-    await seccionLideres(c, "5. Liderazgo por ministerios");
-    await titulo2(c, "6. Entrega del área");
+    await titulo2(c, "5. Entrega del área");
     await parrafo(c, "Se deja constancia del estado actual del inventario, liderazgo, personal,");
     await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
     c.y -= 30;
@@ -337,27 +319,7 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   } else {
     const r = d.prepare("SELECT * FROM equipos WHERE id=?").get(id) as Record<string, unknown> | undefined;
     if (!r) throw new Error("No existe");
-    const fotoRel = r.foto ? String(r.foto) : null;
-    const fotoFull = fotoRel && existsSync(join(DATA_DIR, fotoRel)) ? join(DATA_DIR, fotoRel) : null;
-    if (fotoFull) {
-      const img = await embedImg(doc, fotoFull);
-      if (img) {
-        const sc = Math.min(280 / img.width, 240 / img.height);
-        const w = img.width * sc, h = img.height * sc;
-        const x = (c.pgW - w) / 2;
-        // Marco alrededor de la foto
-        c.page.drawRectangle({ x: x - 4, y: c.y - h - 4, width: w + 8, height: h + 8, borderColor: NAVY, borderWidth: 1 });
-        c.page.drawImage(img, { x, y: c.y - h, width: w, height: h });
-        c.y -= h + 18;
-      }
-    } else {
-      await parrafo(c, "(Sin foto registrada para esta unidad)");
-    }
-    await tabla(c, [{ t: "Campo", w: 150 }, { t: "Valor", w: 365 }], [
-      ["Unidad", String(r.nombre)], ["Tipo", String(r.tipo)], ["Número", `#${r.numero}`],
-      ["Estado", eq(String(r.estado))], ["Ubicación", String(r.ubicacion)],
-      ["Código", String(r.codigo)], ["Observaciones", String(r.observaciones || "—")],
-    ]);
+    await contenidoFichaEquipo(c, doc, r);
   }
   pie(c);
   return doc.save();

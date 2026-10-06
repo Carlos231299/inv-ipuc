@@ -4,7 +4,7 @@ import { buildPdf, buildFicha, type ReportKind } from "@/lib/pdf";
 
 const FN: Record<string, string> = {
   personal: "personal", grupos: "grupos-rotacion", alcancia: "alcancia",
-  equipos: "inventario-sonido", lideres: "liderazgo-ministerios", general: "resumen-general",
+  equipos: "inventario-sonido", general: "resumen-general",
 };
 
 export async function GET(req: Request) {

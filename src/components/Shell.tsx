@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 const NAV = [
   { h: "/", t: "Inicio", i: "🏠" },
   { h: "/equipos", t: "Inventario", i: "🔊" },
-  { h: "/lideres", t: "Líderes", i: "🤝" },
   { h: "/personal", t: "Personal", i: "👥" },
   { h: "/grupos", t: "Alabanza", i: "🎶" },
   { h: "/alcancia", t: "Alcancía", i: "💰" },

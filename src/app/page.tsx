@@ -51,7 +51,7 @@ export default function Inicio() {
         ))}
       </div>
 
-      <div className="sect"><h3>Liderazgo y Alabanza</h3><a href="/lideres">Abrir →</a></div>
+      <div className="sect"><h3>Alabanza</h3><a href="/grupos">Abrir →</a></div>
       <div className="stats">
         <div className="stat"><b>{act}</b><span>Activos</span></div>
         <div className="stat"><b>{grupos().length}</b><span>Grupos</span></div>

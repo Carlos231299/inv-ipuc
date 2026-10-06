@@ -36,9 +36,7 @@ function schema(d: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS rotacion (
       id INTEGER PRIMARY KEY AUTOINCREMENT, dia TEXT NOT NULL, grupo_id INTEGER, orden INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS ajustes (clave TEXT PRIMARY KEY, valor TEXT);
-    CREATE TABLE IF NOT EXISTS lideres (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL, ministerio TEXT NOT NULL,
-      cargo TEXT DEFAULT '', telefono TEXT DEFAULT '', foto TEXT, observaciones TEXT DEFAULT '');
+    DROP TABLE IF EXISTS lideres;
   `);
 }
 
@@ -53,10 +51,6 @@ export type Equipo = {
   ubicacion: string; foto: string | null; codigo: string; observaciones: string;
 };
 export type Rot = { id: number; dia: string; grupo_id: number; orden: number };
-export type Lider = {
-  id: number; nombre: string; ministerio: string; cargo: string;
-  telefono: string; foto: string | null; observaciones: string;
-};
 
 export function grupos(): Grupo[] {
   return db().prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as Grupo[];
@@ -81,9 +75,6 @@ export function nombreGrupo(id: number | null): string {
 export function ajuste(clave: string): string | null {
   const r = db().prepare("SELECT valor FROM ajustes WHERE clave=?").get(clave) as { valor: string } | undefined;
   return r?.valor ?? null;
-}
-export function lideres(): Lider[] {
-  return db().prepare("SELECT * FROM lideres ORDER BY ministerio, nombre").all() as Lider[];
 }
 export function totalRecogido(): number {
   const r = db().prepare("SELECT COALESCE(SUM(monto),0) AS t FROM alcancia WHERE dio=1").get() as { t: number };
