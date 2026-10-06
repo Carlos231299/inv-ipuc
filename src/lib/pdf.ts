@@ -108,7 +108,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   const ff = c.font, fb = c.bold;
   // Aire antes de cada tabla + keep-with-next (header + 2 filas juntos)
   if (c.y < 160) await nueva(c);
-  c.y -= 4;
+  c.y -= 2;
   const conFoto = !!opts?.thumbs;
   const rowH = conFoto ? 40 : 22;
   const thumbMaxW = 50, thumbMaxH = 32;
@@ -124,6 +124,19 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   drawHead();
   let i = 0;
   for (const f of filas) {
+    // Fila combinada "## texto": banda de grupo centrada a lo ancho
+    if (f.length === 1 && f[0].startsWith("##")) {
+      const t = f[0].slice(2).toUpperCase();
+      const rh = 24;
+      if (c.y - rh < 66) { await nueva(c); drawHead(); }
+      const top = c.y - 4;
+      c.page.drawRectangle({ x: M, y: top - rh, width: total, height: rh, color: rgb(0.88, 0.91, 0.97) });
+      const w = fb.widthOfTextAtSize(t, 10);
+      c.page.drawText(t, { x: M + (total - w) / 2, y: top - 16, size: 10, font: fb, color: NAVY });
+      c.page.drawLine({ start: { x: M, y: top - rh }, end: { x: M + total, y: top - rh }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
+      c.y = top - rh; i++;
+      continue;
+    }
     // Envuelve cada celda: nada se recorta, la fila crece según líneas
     const celdas = f.map((cell, j) => (conFoto && j === 0 ? [""] : envolver(ff, cell, 9, cols[j].w - 12)));
     const nLineas = Math.max(1, ...celdas.map((l) => l.length));
@@ -175,7 +188,7 @@ async function titulo2(c: Ctx, t: string) {
   if (c.y < 110) await nueva(c);
   else c.y -= 10; // aire tras tabla/contenido previo (no pegados)
   c.page.drawText(t, { x: M, y: c.y, size: 13, font: c.bold, color: NAVY });
-  c.y -= 14;
+  c.y -= 10;
 }
 
 // Secciones del general: hoja nueva SOLO si quedan <300px (si cabe, fluye)
@@ -301,16 +314,20 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await tituloSeccion(c, "2. Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
+    // Una sola tabla: fila combinada por grupo + filas Integrante | Rol
     const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as { id: number; nombre: string }[];
+    const filasG: string[][] = [];
     for (const g of gs) {
-      await parrafo(c, `${g.nombre}:`);
+      filasG.push([`## ${g.nombre}`]);
       const ms = d.prepare("SELECT nombre, rol FROM integrantes WHERE grupo_id=? ORDER BY nombre").all(g.id) as { nombre: string; rol: string }[];
-      await tabla(c, [{ t: "Nombre", w: 350 }, { t: "Rol", w: 165 }], ms.map((m) => [m.nombre, m.rol]));
-      c.y -= 8;
+      if (ms.length) ms.forEach((m) => filasG.push([m.nombre, m.rol]));
+      else filasG.push(["Sin integrantes registrados", "—"]);
     }
+    await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Rol", w: 215 }], filasG);
     await titulo2(c, "Rotación semanal");
     const rot = d.prepare("SELECT dia, grupo_id FROM rotacion ORDER BY orden").all() as { dia: string; grupo_id: number }[];
     await tabla(c, [{ t: "Día / servicio", w: 200 }, { t: "Grupo", w: 315 }], rot.map((r) => [r.dia, nombreDe(r.grupo_id)]));
+    c.y -= 10; // aire: la nota no va pegada a la última fila
     await parrafo(c, "Nota: el grupo del domingo en la noche repite el martes.");
   }
   if (kind === "alcancia" || kind === "general") {

@@ -4,6 +4,8 @@ import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import { eq } from "@/lib/etiquetas";
 
+const V = Date.now(); // cache-buster PDFs
+
 type E = { id: number; tipo: string; numero: number; nombre: string; estado: string; ubicacion: string; foto: string | null; foto2: string | null; foto3: string | null; codigo: string; observaciones: string };
 const EST = ["EN_USO", "SIN_USO", "DAÑADO", "MANTENIMIENTO"];
 const VACIO: E = { id: 0, tipo: "Parlante activo", numero: 1, nombre: "", estado: "EN_USO", ubicacion: "Templo", foto: null, foto2: null, foto3: null, codigo: "", observaciones: "" };
@@ -38,7 +40,7 @@ export default function Equipos() {
       <p className="mut">{lista.length} unidades · {enUso} en uso · cada #n tiene su foto y estado</p>
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO, numero: lista.length + 1 })}>+ Unidad</button>
-        <a className="btn sec sm" href="/api/reportes?kind=equipos">PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}&v=${V}`}>PDF general</a>
       </div>
       {ed ? (
         <div className="card">
@@ -83,7 +85,7 @@ export default function Equipos() {
             {e.observaciones ? <div className="s">{e.observaciones}</div> : null}
             <div className="btnrow">
               <button className="btn sec sm" onClick={() => setEd({ ...e })}>Editar</button>
-              <a className="btn sec sm" href={`/api/reportes?kind=ficha-equipo&id=${e.id}`}>PDF</a>
+              <a className="btn sec sm" href={`/api/reportes?kind=ficha-equipo&id=${e.id}&v=${V}`}>PDF</a>
               <button className="btn dan sm" onClick={() => borrar(e.id)}>Borrar</button>
             </div>
           </div>
@@ -92,3 +94,4 @@ export default function Equipos() {
     </Shell>
   );
 }
+

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { fmtCOP } from "@/lib/etiquetas";
 
+const V = Date.now(); // cache-buster PDFs
+
 type F = { id: number; nombre: string; dio: number; monto: number };
 
 export default function Alcancia() {
@@ -24,7 +26,7 @@ export default function Alcancia() {
       <h2>💰 Alcancía / voto</h2>
       <p className="mut">Contribución voluntaria · montos visibles · Total: <b>{fmtCOP(total)}</b> · Dieron {dieron}/{lista.length}</p>
       <div className="btnrow">
-        <a className="btn sec sm" href="/api/reportes?kind=alcancia">PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=alcancia&v=${V}&v=${V}`}>PDF general</a>
       </div>
       {lista.map((i) => (
         <div key={i.id} className="card">
@@ -44,3 +46,4 @@ export default function Alcancia() {
     </Shell>
   );
 }
+

@@ -4,6 +4,8 @@ import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import { ep, fmtCOP } from "@/lib/etiquetas";
 
+const V = Date.now(); // cache-buster PDFs
+
 type F = { id: number; nombre: string; estado: string; grupo_id: number | null; grupo: string; rol: string; telefono: string; foto: string | null; observaciones: string; dio: number; monto: number };
 const EST = ["ACTIVO", "ASISTENTE", "DISPONIBLE", "APARTADO", "INACTIVO_SALUD"];
 const ROLES = ["Voz", "Músico", "Sonido", "Líder", "Asistente"];
@@ -48,7 +50,7 @@ export default function Personal() {
       </div>
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO })}>+ Nuevo</button>
-        <a className="btn sec sm" href="/api/reportes?kind=personal">PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=personal&v=${V}&v=${V}`}>PDF general</a>
       </div>
       <p className="mut">{fil.length} personas</p>
 
@@ -99,7 +101,7 @@ export default function Personal() {
             <div className="s">{i.dio ? `Alcancía: ${fmtCOP(i.monto)} ✅` : "Alcancía: pendiente ❌"}</div>
             <div className="btnrow">
               <button className="btn sec sm" onClick={() => setEd({ ...i })}>Editar</button>
-              <a className="btn sec sm" href={`/api/reportes?kind=ficha-integrante&id=${i.id}`}>PDF</a>
+              <a className="btn sec sm" href={`/api/reportes?kind=ficha-integrante&id=${i.id}&v=${V}`}>PDF</a>
               <button className="btn dan sm" onClick={() => borrar(i.id)}>Borrar</button>
             </div>
           </div>
@@ -108,3 +110,5 @@ export default function Personal() {
     </Shell>
   );
 }
+
+

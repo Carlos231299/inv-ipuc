@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 
+const V = Date.now(); // cache-buster PDFs
+
 type M = { id: number; nombre: string; rol: string; estado: string; observaciones: string };
 type G = { id: number; nombre: string; miembros: M[] };
 type R = { dia: string; grupo: string };
@@ -64,7 +66,7 @@ export default function Grupos() {
     <Shell ruta="/grupos">
       <h2>🎶 Alabanza — Grupos de voces</h2>
       <div className="btnrow">
-        <a className="btn sec sm" href="/api/reportes?kind=grupos">PDF grupos + rotación</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=grupos&v=${V}&v=${V}`}>PDF grupos + rotación</a>
       </div>
 
       <div className="card">
@@ -138,3 +140,4 @@ export default function Grupos() {
     </Shell>
   );
 }
+
