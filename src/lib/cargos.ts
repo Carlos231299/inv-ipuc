@@ -19,3 +19,14 @@ export const CARGOS: { grupo: string; cargos: string[] }[] = [
   },
 ];
 export const CARGOS_TODOS = CARGOS.flatMap((g) => g.cargos);
+
+// Roles de voz del Grupo de Alabanza (+ "Otro" con campo libre en la UI)
+export const ROLES_VOZ = [
+  "1ra Voz",
+  "2da Voz",
+  "3ra Voz",
+  "Coros",
+  "Músico",
+  "Director(a)",
+  "Sonido",
+];

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { CARGOS } from "@/lib/cargos";
+import { confirmar, exito, fallar } from "@/lib/alertas";
 
 export default function Ajustes() {
   const [msg, setMsg] = useState("");
@@ -18,17 +19,22 @@ export default function Ajustes() {
 
   async function guardarFirma() {
     if (!nombre.trim() || !cargo) { setMsgF("❌ Completa nombre y cargo."); return; }
+    if (!await confirmar("¿Guardar firma?", `${nombre.trim()} – ${cargo}. Saldrá en el pie de los PDFs.`)) return;
     const r = await fetch("/api/ajustes", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ firma_nombre: nombre.trim(), firma_cargo: cargo }),
     });
-    setMsgF(r.ok ? "✅ Firma actualizada. Saldrá en el pie de los PDFs." : "❌ No se pudo guardar.");
+    if (!r.ok) { setMsgF("❌ No se pudo guardar."); fallar("No se pudo guardar la firma."); return; }
+    setMsgF("✅ Firma actualizada. Saldrá en el pie de los PDFs.");
+    exito("Firma actualizada");
   }
   async function subir(file: File) {
     const fd = new FormData();
     fd.append("escudo", file);
     const r = await fetch("/api/escudo", { method: "POST", body: fd });
     setMsg(r.ok ? "✅ Escudo actualizado. Saldrá pequeño arriba y como marca de agua en los PDFs." : "❌ No se pudo subir (usa PNG o JPG).");
+    if (r.ok) exito("Escudo actualizado");
+    else fallar("Usa PNG o JPG.");
     setV(Date.now());
   }
   return (

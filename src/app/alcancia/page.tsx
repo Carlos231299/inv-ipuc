@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { fmtCOP } from "@/lib/etiquetas";
+import { confirmar, exito } from "@/lib/alertas";
 
 const V = Date.now(); // cache-buster PDFs
 
@@ -16,9 +17,13 @@ export default function Alcancia() {
     setLista(j.lista); setTotal(j.total);
   }
   useEffect(() => { cargar(); }, []);
-  async function marcar(id: number, dio: boolean, monto: number) {
+  async function marcar(id: number, nombre: string, dio: boolean, monto: number) {
+    if (dio) {
+      if (!await confirmar(`¿${nombre} dio ${fmtCOP(monto)}?`, "Quedará registrado como aporte visible.")) return;
+    }
     await fetch("/api/alcancia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ integrante_id: id, dio, monto }) });
     cargar();
+    exito(dio ? "Aporte registrado" : "Marcado pendiente");
   }
   const dieron = lista.filter((x) => x.dio).length;
   return (
@@ -26,7 +31,7 @@ export default function Alcancia() {
       <h2>💰 Alcancía / voto</h2>
       <p className="mut">Contribución voluntaria · montos visibles · Total: <b>{fmtCOP(total)}</b> · Dieron {dieron}/{lista.length}</p>
       <div className="btnrow">
-        <a className="btn sec sm" href={`/api/reportes?kind=alcancia&v=${V}&v=${V}`}>PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=alcancia&v=${V}`}>PDF general</a>
       </div>
       {lista.map((i) => (
         <div key={i.id} className="card">
@@ -38,12 +43,13 @@ export default function Alcancia() {
             <input style={{ margin: 0 }} placeholder="Monto $"
               value={montos[i.id] ?? (i.monto > 0 ? String(i.monto) : "")}
               onChange={(e) => setMontos({ ...montos, [i.id]: e.target.value })} inputMode="numeric" />
-            <button className="btn sm" onClick={() => marcar(i.id, true, Number(montos[i.id]) || i.monto || 0)}>Dio</button>
-            <button className="btn sec sm" onClick={() => marcar(i.id, false, 0)}>Pend.</button>
+            <button className="btn sm" onClick={() => marcar(i.id, i.nombre, true, Number(montos[i.id]) || i.monto || 0)}>Dio</button>
+            <button className="btn sec sm" onClick={() => marcar(i.id, i.nombre, false, 0)}>Pend.</button>
           </div>
         </div>
       ))}
     </Shell>
   );
 }
+
 

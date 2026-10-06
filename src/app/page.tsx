@@ -32,7 +32,7 @@ export default function Inicio() {
 
       <div className="btnrow">
         <a className="btn sm gold" href="/equipos">🔊 Ver inventario</a>
-        <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}&v=${V}`}>📄 PDF inventario</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}`}>📄 PDF inventario</a>
       </div>
 
       <div className="sect"><h3>Estado del inventario</h3><a href="/equipos">Ver todo →</a></div>
@@ -61,7 +61,7 @@ export default function Inicio() {
         <div className="stat"><b>{dieron}</b><span>Dieron</span></div>
       </div>
       <div className="btnrow">
-        <a className="btn sm" href={`/api/reportes?kind=general&v=${V}&v=${V}`}>📄 PDF resumen general</a>
+        <a className="btn sm" href={`/api/reportes?kind=general&v=${V}`}>📄 PDF resumen general</a>
       </div>
 
       <p className="mut">Generado por {ajuste("firma_nombre") ?? "Gerson Acosta"} – {firmaCargo()}</p>
@@ -72,4 +72,5 @@ function firmaCargo() {
   const cargo = ajuste("firma_cargo") ?? "Líder de Alabanza";
   return cargo === "Líder de Música" ? "Líder de Alabanza" : cargo;
 }
+
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import { eq } from "@/lib/etiquetas";
+import { confirmar, exito, fallar } from "@/lib/alertas";
 
 const V = Date.now(); // cache-buster PDFs
 
@@ -25,13 +26,19 @@ export default function Equipos() {
     const r = await fetch("/api/equipos", {
       method: ed.id === 0 ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ed),
     });
-    if (!r.ok) { setErr("❌ No se guardó. Verifica las 3 fotos."); return; }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      const msg = j.error || "No se guardó. Verifica las 3 fotos.";
+      setErr(`❌ ${msg}`); fallar(msg); return;
+    }
     setEd(null); cargar();
+    exito(ed.id === 0 ? "Unidad registrada" : "Unidad actualizada");
   }
-  async function borrar(id: number) {
-    if (!confirm("¿Eliminar unidad?")) return;
+  async function borrar(id: number, nombre: string) {
+    if (!await confirmar("¿Eliminar unidad?", `${nombre} se borrará del inventario.`, "Sí, eliminar")) return;
     await fetch(`/api/equipos?id=${id}`, { method: "DELETE" });
     cargar();
+    exito("Unidad eliminada");
   }
   const enUso = lista.filter((e) => e.estado === "EN_USO").length;
   return (
@@ -40,7 +47,7 @@ export default function Equipos() {
       <p className="mut">{lista.length} unidades · {enUso} en uso · cada #n tiene su foto y estado</p>
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO, numero: lista.length + 1 })}>+ Unidad</button>
-        <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}&v=${V}`}>PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}`}>PDF general</a>
       </div>
       {ed ? (
         <div className="card">
@@ -86,7 +93,7 @@ export default function Equipos() {
             <div className="btnrow">
               <button className="btn sec sm" onClick={() => setEd({ ...e })}>Editar</button>
               <a className="btn sec sm" href={`/api/reportes?kind=ficha-equipo&id=${e.id}&v=${V}`}>PDF</a>
-              <button className="btn dan sm" onClick={() => borrar(e.id)}>Borrar</button>
+              <button className="btn dan sm" onClick={() => borrar(e.id, e.nombre)}>Borrar</button>
             </div>
           </div>
         </div>
@@ -94,4 +101,5 @@ export default function Equipos() {
     </Shell>
   );
 }
+
 

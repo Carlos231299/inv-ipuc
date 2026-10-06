@@ -3,27 +3,23 @@ import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import { ep, fmtCOP } from "@/lib/etiquetas";
+import { confirmar, exito, fallar } from "@/lib/alertas";
 
 const V = Date.now(); // cache-buster PDFs
 
 type F = { id: number; nombre: string; estado: string; grupo_id: number | null; grupo: string; rol: string; telefono: string; foto: string | null; observaciones: string; dio: number; monto: number };
 const EST = ["ACTIVO", "ASISTENTE", "DISPONIBLE", "APARTADO", "INACTIVO_SALUD"];
-const ROLES = ["Voz", "Músico", "Sonido", "Líder", "Asistente"];
 
-const VACIO = { id: 0, nombre: "", estado: "ACTIVO", grupo_id: null as number | null, grupo: "", rol: "Voz", telefono: "", foto: null as string | null, observaciones: "", dio: 0, monto: 0 };
+const VACIO = { id: 0, nombre: "", estado: "ACTIVO", grupo_id: null as number | null, grupo: "", rol: "", telefono: "", foto: null as string | null, observaciones: "", dio: 0, monto: 0 };
 
 export default function Personal() {
   const [lista, setLista] = useState<F[]>([]);
-  const [grupos, setGrupos] = useState<{ id: number; nombre: string }[]>([]);
   const [q, setQ] = useState("");
   const [f, setF] = useState("TODOS");
   const [ed, setEd] = useState<typeof VACIO | null>(null);
 
   async function cargar() {
-    const r = await fetch("/api/integrantes").then((x) => x.json());
-    setLista(r);
-    const g = await fetch("/api/grupos").then((x) => x.json());
-    setGrupos(g.grupos.map((x: { id: number; nombre: string }) => ({ id: x.id, nombre: x.nombre })));
+    setLista(await fetch("/api/integrantes").then((x) => x.json()));
   }
   useEffect(() => { cargar(); }, []);
 
@@ -32,13 +28,16 @@ export default function Personal() {
   async function guardar() {
     if (!ed || !ed.nombre.trim()) return;
     const m = ed.id === 0 ? "POST" : "PUT";
-    await fetch("/api/integrantes", { method: m, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ed, dio: !!ed.dio, monto: Number(ed.monto) || 0 }) });
+    const r = await fetch("/api/integrantes", { method: m, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ed, dio: !!ed.dio, monto: Number(ed.monto) || 0 }) });
+    if (!r.ok) { fallar("No se pudo guardar."); return; }
     setEd(null); cargar();
+    exito(ed.id === 0 ? "Integrante creado" : "Datos actualizados");
   }
-  async function borrar(id: number) {
-    if (!confirm("¿Eliminar integrante?")) return;
+  async function borrar(id: number, nombre: string) {
+    if (!await confirmar("¿Eliminar integrante?", `${nombre} se borrará del personal.`)) return;
     await fetch(`/api/integrantes?id=${id}`, { method: "DELETE" });
     cargar();
+    exito("Integrante eliminado");
   }
 
   return (
@@ -50,7 +49,7 @@ export default function Personal() {
       </div>
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO })}>+ Nuevo</button>
-        <a className="btn sec sm" href={`/api/reportes?kind=personal&v=${V}&v=${V}`}>PDF general</a>
+        <a className="btn sec sm" href={`/api/reportes?kind=personal&v=${V}`}>PDF general</a>
       </div>
       <p className="mut">{fil.length} personas</p>
 
@@ -60,21 +59,15 @@ export default function Personal() {
           <FotoInput valor={ed.foto} onFoto={(x) => setEd({ ...ed, foto: x })} />
           <label>Nombre *</label>
           <input value={ed.nombre} onChange={(e) => setEd({ ...ed, nombre: e.target.value })} />
-          <div className="row">
-            <div className="grow"><label>Estado</label>
-              <select value={ed.estado} onChange={(e) => setEd({ ...ed, estado: e.target.value })}>
-                {EST.map((e) => <option key={e} value={e}>{ep(e)}</option>)}
-              </select></div>
-            <div className="grow"><label>Rol</label>
-              <select value={ed.rol} onChange={(e) => setEd({ ...ed, rol: e.target.value })}>
-                {ROLES.map((e) => <option key={e}>{e}</option>)}
-              </select></div>
-          </div>
-          <label>Grupo de voz</label>
-          <select value={ed.grupo_id ?? ""} onChange={(e) => setEd({ ...ed, grupo_id: e.target.value ? Number(e.target.value) : null })}>
-            <option value="">Sin grupo</option>
-            {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+          <label>Estado</label>
+          <select value={ed.estado} onChange={(e) => setEd({ ...ed, estado: e.target.value })}>
+            {EST.map((e) => <option key={e} value={e}>{ep(e)}</option>)}
           </select>
+          {ed.id !== 0 ? (
+            <p className="s">🎶 Grupo: <b>{ed.grupo || "Sin grupo"}</b> · Rol: <b>{ed.rol || "Por asignar"}</b> <span className="mut">(se edita en Alabanza)</span></p>
+          ) : (
+            <p className="s">🎶 Quedará <b>Sin grupo</b>; el grupo y rol se asignan en Alabanza.</p>
+          )}
           <label>Teléfono</label>
           <input value={ed.telefono} onChange={(e) => setEd({ ...ed, telefono: e.target.value })} inputMode="tel" />
           <label>Observaciones</label>
@@ -96,13 +89,13 @@ export default function Personal() {
           {i.foto ? <img className="foto" src={`/api/fotos?f=${encodeURIComponent(i.foto)}`} alt="" /> : <div className="ph">👤</div>}
           <div className="grow">
             <div className="t">{i.nombre}</div>
-            <div className="s">{ep(i.estado)} · {i.grupo} · {i.rol}</div>
+            <div className="s">{ep(i.estado)} · {i.grupo} · {i.rol || "Por asignar"}</div>
             {i.telefono ? <div className="s">Tel: {i.telefono}</div> : null}
             <div className="s">{i.dio ? `Alcancía: ${fmtCOP(i.monto)} ✅` : "Alcancía: pendiente ❌"}</div>
             <div className="btnrow">
               <button className="btn sec sm" onClick={() => setEd({ ...i })}>Editar</button>
               <a className="btn sec sm" href={`/api/reportes?kind=ficha-integrante&id=${i.id}&v=${V}`}>PDF</a>
-              <button className="btn dan sm" onClick={() => borrar(i.id)}>Borrar</button>
+              <button className="btn dan sm" onClick={() => borrar(i.id, i.nombre)}>Borrar</button>
             </div>
           </div>
         </div>
