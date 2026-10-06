@@ -431,7 +431,6 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   const logo = lf ? await embedImg(doc, lf) : null;
   const nombre = tipo === "integrante" ? "Ficha de Integrante" : "Ficha de Equipo";
   const c = newCtx(doc, font, bold, logo, nombre);
-  c.y += 25; // el título ya va en el encabezado: se aprovecha el alto de la hoja
   const d = db();
   if (tipo === "integrante") {
     const r = d.prepare("SELECT * FROM integrantes WHERE id=?").get(id) as Record<string, unknown> | undefined;
