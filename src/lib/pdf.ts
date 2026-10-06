@@ -121,15 +121,19 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   drawHead();
   let i = 0;
   for (const f of filas) {
-    if (c.y < 70) { await nueva(c); drawHead(); }
+    // Envuelve cada celda: nada se recorta, la fila crece según líneas
+    const celdas = f.map((cell, j) => (conFoto && j === 0 ? [""] : envolver(ff, cell, 9, cols[j].w - 12)));
+    const nLineas = Math.max(1, ...celdas.map((l) => l.length));
+    const rh = Math.max(rowH, nLineas * 13 + 10);
+    if (c.y - rh < 66) { await nueva(c); drawHead(); }
+    const top = c.y - 4;
     if (opts?.zebra !== false && i % 2 === 1)
-      c.page.drawRectangle({ x: M, y: c.y - 4, width: total, height: rowH, color: LIGHT });
+      c.page.drawRectangle({ x: M, y: top - rh, width: total, height: rh, color: LIGHT });
     let x = M;
-    f.forEach((cell, j) => {
-      if (!(conFoto && j === 0)) {
-        const ty = conFoto ? c.y - Math.round(rowH / 2) - 3 : c.y;
-        c.page.drawText(cell.slice(0, 52), { x: x + 6, y: ty, size: 9, font: ff });
-      }
+    celdas.forEach((lns, j) => {
+      lns.forEach((ln, k) => {
+        c.page.drawText(ln, { x: x + 6, y: top - 13 - k * 13, size: 9, font: ff });
+      });
       x += cols[j].w;
     });
     if (conFoto) {
@@ -137,14 +141,14 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
       if (img) {
         const sc = Math.min(thumbMaxW / img.width, thumbMaxH / img.height);
         const w = img.width * sc, h = img.height * sc;
-        c.page.drawImage(img, { x: M + (cols[0].w - w) / 2, y: c.y - 4 - h, width: w, height: h });
+        c.page.drawImage(img, { x: M + (cols[0].w - w) / 2, y: top - (rh - h) / 2 - h, width: w, height: h });
       } else {
-        c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: c.y - 10, size: 10, font: ff, color: GRAY });
+        c.page.drawText("—", { x: M + cols[0].w / 2 - 3, y: top - rh / 2 - 3, size: 10, font: ff, color: GRAY });
       }
     }
     // Solo hairline horizontal (sin grilla vertical): look limpio, no "Word"
-    c.page.drawLine({ start: { x: M, y: c.y - 4 }, end: { x: M + total, y: c.y - 4 }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
-    c.y -= rowH; i++;
+    c.page.drawLine({ start: { x: M, y: top - rh }, end: { x: M + total, y: top - rh }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
+    c.y = top - rh; i++;
   }
 }
 
@@ -176,9 +180,12 @@ async function tituloSeccion(c: Ctx, t: string) {
 }
 
 async function parrafo(c: Ctx, t: string) {
-  if (c.y < 70) await nueva(c);
-  c.page.drawText(t.slice(0, 110), { x: M, y: c.y, size: 10, font: c.font });
-  c.y -= 16;
+  for (const ln of envolver(c.font, t, 10, c.pgW - M * 2)) {
+    if (c.y < 70) await nueva(c);
+    c.page.drawText(ln, { x: M, y: c.y, size: 10, font: c.font });
+    c.y -= 14;
+  }
+  c.y -= 3;
 }
 
 export type ReportKind = "personal" | "grupos" | "alcancia" | "equipos" | "general";
@@ -194,28 +201,72 @@ function centrado(c: Ctx, texto: string, size: number, font: Ctx["font"]): numbe
   return (c.pgW - font.widthOfTextAtSize(texto, size)) / 2;
 }
 
+// Divide un texto en líneas que caben en maxW (sin recortar nada)
+function envolver(font: Ctx["font"], texto: string, size: number, maxW: number): string[] {
+  const palabras = texto.split(/\s+/).filter(Boolean);
+  if (!palabras.length) return [""];
+  const lineas: string[] = [];
+  let actual = "";
+  for (const p of palabras) {
+    const prueba = actual ? actual + " " + p : p;
+    if (font.widthOfTextAtSize(prueba, size) <= maxW || !actual) actual = prueba;
+    else { lineas.push(actual); actual = p; }
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
+async function parrafoCentrado(c: Ctx, texto: string, size: number, color = GRAY) {
+  for (const ln of envolver(c.font, texto, size, c.pgW - M * 2)) {
+    if (c.y < 70) await nueva(c);
+    c.page.drawText(ln, { x: centrado(c, ln, size, c.font), y: c.y, size, font: c.font, color });
+    c.y -= size + 4;
+  }
+}
+
 // Contenido de ficha de equipo (misma estructura en individual y general):
 // nombre + foto centrada con marco + <br> + tabla Campo/Valor completa
 async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, unknown>) {
   const nombre = String(r.nombre);
   c.page.drawText(nombre, { x: centrado(c, nombre, 16, c.bold), y: c.y, size: 16, font: c.bold, color: NAVY });
   c.y -= 28;
-  const fotoRel = r.foto ? String(r.foto) : null;
-  const fotoFull = fotoRel && existsSync(join(DATA_DIR, fotoRel)) ? join(DATA_DIR, fotoRel) : null;
-  const img = fotoFull ? await embedImg(doc, fotoFull) : null;
-  if (img) {
-    const sc = Math.min(280 / img.width, 240 / img.height);
-    const w = img.width * sc, h = img.height * sc;
-    const x = (c.pgW - w) / 2;
-    c.page.drawRectangle({ x: x - 4, y: c.y - h - 4, width: w + 8, height: h + 8, borderColor: NAVY, borderWidth: 1 });
-    c.page.drawImage(img, { x, y: c.y - h, width: w, height: h });
-    c.y -= h + 18;
+  // Evidencias: hasta 3 fotos en fila, centradas, con marco y etiqueta
+  const rels = [r.foto, (r as Record<string, unknown>).foto2, (r as Record<string, unknown>).foto3]
+    .filter((f): f is string => typeof f === "string" && f.length > 0);
+  const imgs: PDFImage[] = [];
+  for (const rel of rels) {
+    const full = join(DATA_DIR, rel);
+    if (existsSync(full)) {
+      const im = await embedImg(doc, full);
+      if (im) imgs.push(im);
+    }
+  }
+  if (imgs.length) {
+    if (c.y < 280) await nueva(c);
+    const boxW = Math.min(160, (c.pgW - M * 2 - 16) / imgs.length);
+    const dims = imgs.map((im) => {
+      const sc = Math.min(boxW / im.width, 130 / im.height);
+      return { im, w: im.width * sc, h: im.height * sc };
+    });
+    const filaH = Math.max(...dims.map((d) => d.h));
+    const totalW = dims.reduce((a, d) => a + d.w, 0) + 8 * (dims.length - 1);
+    let x = (c.pgW - totalW) / 2;
+    for (let k = 0; k < dims.length; k++) {
+      const { im, w, h } = dims[k];
+      const y0 = c.y - (filaH - h) / 2;
+      c.page.drawRectangle({ x: x - 3, y: y0 - h - 3, width: w + 6, height: h + 6, borderColor: NAVY, borderWidth: 1 });
+      c.page.drawImage(im, { x, y: y0 - h, width: w, height: h });
+      const et = `Foto ${k + 1}`;
+      c.page.drawText(et, { x: x + (w - c.font.widthOfTextAtSize(et, 8)) / 2, y: y0 - h - 14, size: 8, font: c.font, color: GRAY });
+      x += w + 8;
+    }
+    c.y -= filaH + 30;
   } else {
-    const t = "(Sin foto registrada para esta unidad)";
+    const t = "(Sin fotos registradas para esta unidad)";
     c.page.drawText(t, { x: centrado(c, t, 11, c.font), y: c.y, size: 11, font: c.font, color: GRAY });
     c.y -= 26;
   }
-  c.y -= 8; // <br> entre imagen y tabla
+  c.y -= 8; // <br> entre imágenes y tabla
   await tabla(c, [{ t: "Campo", w: 150 }, { t: "Valor", w: 365 }], [
     ["Unidad", String(r.nombre)], ["Tipo", String(r.tipo)], ["Número", `#${r.numero}`],
     ["Estado", eq(String(r.estado))], ["Ubicación", String(r.ubicacion)],

@@ -16,10 +16,12 @@ export async function POST(req: Request) {
   const b = await req.json();
   const numero = Number(b.numero) || 1;
   const nombre = `${(b.tipo || "Equipo").trim()} #${numero}`;
+  const fotos = [b.foto, b.foto2, b.foto3].filter((f) => typeof f === "string" && f);
+  if (fotos.length < 3) return NextResponse.json({ error: "Mínimo 3 fotos de evidencia" }, { status: 400 });
   const r = db().prepare(
-    "INSERT INTO equipos (tipo, numero, nombre, estado, ubicacion, foto, codigo, observaciones) VALUES (?,?,?,?,?,?,?,?)"
+    "INSERT INTO equipos (tipo, numero, nombre, estado, ubicacion, foto, foto2, foto3, codigo, observaciones) VALUES (?,?,?,?,?,?,?,?,?,?)"
   ).run(b.tipo.trim(), numero, nombre, b.estado || "EN_USO", b.ubicacion || "Templo",
-    b.foto || null, b.codigo || "", b.observaciones || "");
+    fotos[0], fotos[1], fotos[2], b.codigo || "", b.observaciones || "");
   return NextResponse.json({ id: Number(r.lastInsertRowid), nombre });
 }
 
@@ -28,8 +30,10 @@ export async function PUT(req: Request) {
   const b = await req.json();
   const numero = Number(b.numero) || 1;
   const nombre = `${(b.tipo || "Equipo").trim()} #${numero}`;
-  db().prepare("UPDATE equipos SET tipo=?, numero=?, nombre=?, estado=?, ubicacion=?, foto=?, codigo=?, observaciones=? WHERE id=?")
-    .run(b.tipo.trim(), numero, nombre, b.estado, b.ubicacion, b.foto || null, b.codigo || "", b.observaciones || "", b.id);
+  const fotos = [b.foto, b.foto2, b.foto3].filter((f) => typeof f === "string" && f);
+  if (fotos.length < 3) return NextResponse.json({ error: "Mínimo 3 fotos de evidencia" }, { status: 400 });
+  db().prepare("UPDATE equipos SET tipo=?, numero=?, nombre=?, estado=?, ubicacion=?, foto=?, foto2=?, foto3=?, codigo=?, observaciones=? WHERE id=?")
+    .run(b.tipo.trim(), numero, nombre, b.estado, b.ubicacion, fotos[0], fotos[1], fotos[2], b.codigo || "", b.observaciones || "", b.id);
   return NextResponse.json({ ok: true, nombre });
 }
 

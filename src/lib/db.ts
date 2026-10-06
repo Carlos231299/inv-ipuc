@@ -37,6 +37,11 @@ function schema(d: DatabaseSync) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, dia TEXT NOT NULL, grupo_id INTEGER, orden INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS ajustes (clave TEXT PRIMARY KEY, valor TEXT);
     DROP TABLE IF EXISTS lideres;
+    // Evidencias: mínimo 3 fotos por unidad (diferentes ángulos)
+    const colsEq = d.prepare("PRAGMA table_info(equipos)").all() as { name: string }[];
+    for (const col of ["foto2", "foto3"]) {
+      if (!colsEq.some((x) => x.name === col)) d.exec(`ALTER TABLE equipos ADD COLUMN ${col} TEXT`);
+    }
   `);
 }
 
@@ -48,8 +53,14 @@ export type Grupo = { id: number; nombre: string };
 export type Aporte = { id: number; integrante_id: number; dio: number; monto: number; fecha: string };
 export type Equipo = {
   id: number; tipo: string; numero: number; nombre: string; estado: string;
-  ubicacion: string; foto: string | null; codigo: string; observaciones: string;
+  ubicacion: string; foto: string | null; foto2: string | null; foto3: string | null;
+  codigo: string; observaciones: string;
 };
+
+// Fotos de evidencia de una unidad (mínimo 3, diferentes ángulos)
+export function fotosDe(r: { foto?: unknown; foto2?: unknown; foto3?: unknown }): string[] {
+  return [r.foto, r.foto2, r.foto3].filter((f): f is string => typeof f === "string" && f.length > 0);
+}
 export type Rot = { id: number; dia: string; grupo_id: number; orden: number };
 
 export function grupos(): Grupo[] {

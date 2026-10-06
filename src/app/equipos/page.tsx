@@ -4,20 +4,26 @@ import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import { eq } from "@/lib/etiquetas";
 
-type E = { id: number; tipo: string; numero: number; nombre: string; estado: string; ubicacion: string; foto: string | null; codigo: string; observaciones: string };
+type E = { id: number; tipo: string; numero: number; nombre: string; estado: string; ubicacion: string; foto: string | null; foto2: string | null; foto3: string | null; codigo: string; observaciones: string };
 const EST = ["EN_USO", "SIN_USO", "DAÑADO", "MANTENIMIENTO"];
-const VACIO: E = { id: 0, tipo: "Parlante activo", numero: 1, nombre: "", estado: "EN_USO", ubicacion: "Templo", foto: null, codigo: "", observaciones: "" };
+const VACIO: E = { id: 0, tipo: "Parlante activo", numero: 1, nombre: "", estado: "EN_USO", ubicacion: "Templo", foto: null, foto2: null, foto3: null, codigo: "", observaciones: "" };
+const FOTOS_LABEL = ["Foto 1 (frontal)", "Foto 2 (lateral)", "Foto 3 (detalle)"] as const;
 
 export default function Equipos() {
   const [lista, setLista] = useState<E[]>([]);
   const [ed, setEd] = useState<E | null>(null);
+  const [err, setErr] = useState("");
   async function cargar() { setLista(await fetch("/api/equipos").then((x) => x.json())); }
   useEffect(() => { cargar(); }, []);
   async function guardar() {
     if (!ed || !ed.tipo.trim()) return;
-    await fetch("/api/equipos", {
+    const n = [ed.foto, ed.foto2, ed.foto3].filter(Boolean).length;
+    if (n < 3) { setErr(`❌ Faltan fotos de evidencia: ${n}/3 (toma de diferentes ángulos).`); return; }
+    setErr("");
+    const r = await fetch("/api/equipos", {
       method: ed.id === 0 ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ed),
     });
+    if (!r.ok) { setErr("❌ No se guardó. Verifica las 3 fotos."); return; }
     setEd(null); cargar();
   }
   async function borrar(id: number) {
@@ -37,7 +43,14 @@ export default function Equipos() {
       {ed ? (
         <div className="card">
           <h3>Unidad #{ed.numero || "?"}</h3>
-          <FotoInput valor={ed.foto} onFoto={(x) => setEd({ ...ed, foto: x })} />
+          <p className="mut">📷 Mínimo 3 fotos de diferentes ángulos para ver el estado real.</p>
+          {([["foto", FOTOS_LABEL[0]], ["foto2", FOTOS_LABEL[1]], ["foto3", FOTOS_LABEL[2]]] as const).map(([k, label]) => (
+            <div key={k}>
+              <label>{label}</label>
+              <FotoInput valor={ed[k]} onFoto={(x) => { setErr(""); setEd({ ...ed, [k]: x }); }} />
+            </div>
+          ))}
+          {err ? <div className="err">{err}</div> : null}
           <label>Tipo (Parlante activo, Consola, Micrófonos…)</label>
           <input value={ed.tipo} onChange={(e) => setEd({ ...ed, tipo: e.target.value })} />
           <div className="row">
@@ -52,8 +65,8 @@ export default function Equipos() {
           <input value={ed.ubicacion} onChange={(e) => setEd({ ...ed, ubicacion: e.target.value })} />
           <label>Código (PARL-01)</label>
           <input value={ed.codigo} onChange={(e) => setEd({ ...ed, codigo: e.target.value })} />
-          <label>Observaciones</label>
-          <input value={ed.observaciones} onChange={(e) => setEd({ ...ed, observaciones: e.target.value })} />
+          <label>Observaciones (sin límite)</label>
+          <textarea rows={3} value={ed.observaciones} onChange={(e) => setEd({ ...ed, observaciones: e.target.value })} style={{ resize: "vertical" }} />
           <p className="s">Se guardará como: <b>{ed.tipo || "Equipo"} #{ed.numero}</b></p>
           <div className="btnrow">
             <button className="btn sm" onClick={guardar}>Guardar</button>
