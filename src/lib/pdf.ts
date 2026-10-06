@@ -219,6 +219,57 @@ function centrado(c: Ctx, texto: string, size: number, font: Ctx["font"]): numbe
   return (c.pgW - font.widthOfTextAtSize(texto, size)) / 2;
 }
 
+// Tabla de grupos en 3 columnas: NOMBRE DEL GRUPO | INTEGRANTE | ROL.
+// El nombre del grupo se centra verticalmente abarcando sus filas (ahorra espacio).
+async function tablaGrupos(c: Ctx, gs: { id: number; nombre: string }[]) {
+  const d = db();
+  const ff = c.font, fb = c.bold;
+  const wG = 150, wI = 200, wR = 165, total = wG + wI + wR;
+  if (c.y < 160) await nueva(c);
+  c.y -= 2;
+  const drawHead = () => {
+    c.page.drawRectangle({ x: M, y: c.y - 30, width: total, height: 24, color: NAVY });
+    c.page.drawText("NOMBRE DEL GRUPO", { x: M + 6, y: c.y - 21, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+    c.page.drawText("INTEGRANTE", { x: M + wG + 6, y: c.y - 21, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+    c.page.drawText("ROL", { x: M + wG + wI + 6, y: c.y - 21, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+    c.y -= 30;
+  };
+  drawHead();
+  for (let gi = 0; gi < gs.length; gi++) {
+    const g = gs[gi];
+    const ms = d.prepare("SELECT nombre, rol FROM integrantes WHERE grupo_id=? ORDER BY nombre").all(g.id) as { nombre: string; rol: string }[];
+    const filas: string[][] = ms.length ? ms.map((m) => [m.nombre, m.rol]) : [["Sin integrantes registrados", "—"]];
+    const altos = filas.map((f) => Math.max(22,
+      Math.max(envolver(ff, f[0], 9, wI - 12).length, envolver(ff, f[1], 9, wR - 12).length) * 13 + 10));
+    const bloque = altos.reduce((a, b) => a + b, 0);
+    // Cada grupo viaja junto (no se parte entre hojas)
+    if (c.y - bloque < 66) { await nueva(c); drawHead(); }
+    const topBloque = c.y - 4;
+    if (gi % 2 === 1) {
+      c.page.drawRectangle({ x: M, y: topBloque - bloque, width: total, height: bloque, color: LIGHT });
+    }
+    // Nombre del grupo centrado verticalmente en su bloque
+    const gLineas = envolver(fb, g.nombre, 10, wG - 12);
+    const baseG = topBloque - bloque / 2 + ((gLineas.length - 1) * 13) / 2;
+    gLineas.forEach((ln, k) => {
+      c.page.drawText(ln, { x: M + 6, y: baseG - k * 13, size: 10, font: fb, color: NAVY });
+    });
+    // Filas de integrantes con hairlines
+    let y = topBloque;
+    filas.forEach((f, k) => {
+      const rh = altos[k];
+      const lnI = envolver(ff, f[0], 9, wI - 12);
+      const lnR = envolver(ff, f[1], 9, wR - 12);
+      lnI.forEach((ln, n) => c.page.drawText(ln, { x: M + wG + 6, y: y - 13 - n * 13, size: 9, font: ff }));
+      lnR.forEach((ln, n) => c.page.drawText(ln, { x: M + wG + wI + 6, y: y - 13 - n * 13, size: 9, font: ff }));
+      c.page.drawLine({ start: { x: M, y: y - rh }, end: { x: M + total, y: y - rh }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
+      y -= rh;
+    });
+    c.y = topBloque - bloque;
+  }
+  c.y -= 6; // aire tras la tabla
+}
+
 // Divide un texto en líneas que caben en maxW (sin recortar nada)
 function envolver(font: Ctx["font"], texto: string, size: number, maxW: number): string[] {
   const palabras = texto.split(/\s+/).filter(Boolean);
@@ -314,16 +365,9 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await tituloSeccion(c, "2. Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
-    // Una sola tabla: fila combinada por grupo + filas Integrante | Rol
+    // Una sola tabla de 3 columnas: el grupo abarca las filas de sus integrantes
     const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as { id: number; nombre: string }[];
-    const filasG: string[][] = [];
-    for (const g of gs) {
-      filasG.push([`## ${g.nombre}`]);
-      const ms = d.prepare("SELECT nombre, rol FROM integrantes WHERE grupo_id=? ORDER BY nombre").all(g.id) as { nombre: string; rol: string }[];
-      if (ms.length) ms.forEach((m) => filasG.push([m.nombre, m.rol]));
-      else filasG.push(["Sin integrantes registrados", "—"]);
-    }
-    await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Rol", w: 215 }], filasG);
+    await tablaGrupos(c, gs);
     await titulo2(c, "Rotación semanal");
     const rot = d.prepare("SELECT dia, grupo_id FROM rotacion ORDER BY orden").all() as { dia: string; grupo_id: number }[];
     await tabla(c, [{ t: "Día / servicio", w: 200 }, { t: "Grupo", w: 315 }], rot.map((r) => [r.dia, nombreDe(r.grupo_id)]));
@@ -337,6 +381,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
        WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
     await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
       rows.map((r) => [r.nombre, r.dio ? "Dio" : "Pendiente", r.dio ? fmtCOP(r.monto) : "—"]));
+    c.y -= 10; // aire: la nota no va pegada a la última celda
     await parrafo(c, `Total recogido: ${fmtCOP(totalRecogido())} · Dieron ${rows.filter((r) => r.dio).length} de ${rows.length}.`);
   }
   if (kind === "equipos" || kind === "general") {
