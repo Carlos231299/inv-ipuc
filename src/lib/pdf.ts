@@ -103,8 +103,8 @@ function pie(c: Ctx) {
 async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][], opts?: { zebra?: boolean; thumbs?: (PDFImage | null)[] }) {
   const total = cols.reduce((a, x) => a + x.w, 0);
   const ff = c.font, fb = c.bold;
-  // Aire antes de cada tabla para que el texto previo no se meta bajo el encabezado
-  if (c.y < 120) await nueva(c);
+  // Aire antes de cada tabla + keep-with-next (header + 2 filas juntos)
+  if (c.y < 160) await nueva(c);
   c.y -= 8;
   const conFoto = !!opts?.thumbs;
   const rowH = conFoto ? 40 : 22;
@@ -167,15 +167,15 @@ async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)
 }
 
 async function titulo2(c: Ctx, t: string) {
-  // Anti-huérfanos: si quedan <200px, el título baja a hoja nueva
-  if (c.y < 200) await nueva(c);
+  // Anti-huérfanos calibrado: título + ~2 filas necesitan ~110px
+  if (c.y < 110) await nueva(c);
   c.page.drawText(t, { x: M, y: c.y, size: 13, font: c.bold, color: NAVY });
   c.y -= 22;
 }
 
-// Secciones del general: siempre arrancan en hoja nueva (salvo página fresca)
+// Secciones del general: hoja nueva SOLO si quedan <300px (si cabe, fluye)
 async function tituloSeccion(c: Ctx, t: string) {
-  if (c.y < c.pgH - 130) await nueva(c);
+  if (c.y < 300 && c.y < c.pgH - 130) await nueva(c);
   await titulo2(c, t);
 }
 
@@ -227,6 +227,7 @@ async function parrafoCentrado(c: Ctx, texto: string, size: number, color = GRAY
 // Contenido de ficha de equipo (misma estructura en individual y general):
 // nombre + foto centrada con marco + <br> + tabla Campo/Valor completa
 async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, unknown>) {
+  if (c.y < 300) await nueva(c);
   const nombre = String(r.nombre);
   c.page.drawText(nombre, { x: centrado(c, nombre, 16, c.bold), y: c.y, size: 16, font: c.bold, color: NAVY });
   c.y -= 28;
@@ -324,14 +325,26 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await tituloSeccion(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
     }
-    let primera = kind === "equipos";
+    // Flujo responsivo: cada unidad salta de hoja SOLO si no cabe su estimado
+    let primeraUnidad = true;
     for (const e of eqs) {
-      if (!primera) await nueva(c);
-      primera = false;
+      const fotos = [e.foto, (e as Record<string, unknown>).foto2, (e as Record<string, unknown>).foto3]
+        .filter((f) => typeof f === "string" && (f as string).length > 0).length;
+      const obsLen = String(e.observaciones || "").length;
+      const estimado = 28 + (fotos ? 200 : 80) + 16 + 7 * 26 + Math.ceil(obsLen / 55) * 13 + 24;
+      if (!primeraUnidad) {
+        if (c.y - estimado < 66) await nueva(c);
+        else {
+          // Separador sutil entre unidades en la misma hoja
+          c.page.drawLine({ start: { x: M, y: c.y }, end: { x: c.pgW - M, y: c.y }, thickness: 0.75, color: rgb(0.79, 0.66, 0.25) });
+          c.y -= 14;
+        }
+      }
+      primeraUnidad = false;
       await contenidoFichaEquipo(c, doc, e);
     }
     if (kind === "equipos") {
-      await nueva(c);
+      c.y -= 4;
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
       await parrafo(c, "Fin del inventario.");
     }
