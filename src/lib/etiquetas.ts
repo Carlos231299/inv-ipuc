@@ -21,4 +21,3 @@ export const fmtCOP = (n: number) =>
   "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 export const HEADER_IGLESIA = "IPUC 19, Maicao — Altos del Parrantial";
-export const FOOTER_FIRMA = "Generado por Gerson Acosta – Líder de Música";

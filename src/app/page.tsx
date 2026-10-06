@@ -1,5 +1,5 @@
 import Shell from "@/components/Shell";
-import { integrantes, equipos, totalRecogido, aportes, grupos } from "@/lib/db";
+import { integrantes, equipos, totalRecogido, aportes, grupos, ajuste } from "@/lib/db";
 import { eq, fmtCOP } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +62,11 @@ export default function Inicio() {
         <a className="btn sm" href="/api/reportes?kind=general">📄 PDF resumen general</a>
       </div>
 
-      <p className="mut">Generado por Gerson Acosta – Líder de Música</p>
+      <p className="mut">Generado por {ajuste("firma_nombre") ?? "Gerson Acosta"} – {firmaCargo()}</p>
     </Shell>
   );
+}
+function firmaCargo() {
+  const cargo = ajuste("firma_cargo") ?? "Líder de Alabanza";
+  return cargo === "Líder de Música" ? "Líder de Alabanza" : cargo;
 }
