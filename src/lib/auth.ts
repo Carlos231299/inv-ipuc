@@ -1,8 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, scryptSync } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { cookies } from "next/headers";
-import bcrypt from "bcryptjs";
 import { DATA_DIR } from "./db";
 import { COOKIE } from "./auth-edge";
 
@@ -50,15 +49,20 @@ export async function requireUser(): Promise<string> {
   return u;
 }
 
+function scryptHex(pass: string, saltHex: string): string {
+  return scryptSync(pass, Buffer.from(saltHex, "hex"), 64).toString("hex");
+}
+
 export async function checkLogin(user: string, pass: string): Promise<boolean> {
   const wantUser = process.env.ADMIN_USER || "Gerson19";
-  console.error(`[login-diag] user_len=${user?.length} want_len=${wantUser?.length} match=${user === wantUser} hash_len=${process.env.ADMIN_PASS_HASH?.length || 0} hash_head=${process.env.ADMIN_PASS_HASH?.slice(0, 8)} datadir_len=${process.env.DATA_DIR?.length || 0}`);
   if (user !== wantUser) return false;
   const hash = process.env.ADMIN_PASS_HASH;
-  if (hash) {
-    const r = await bcrypt.compare(pass, hash);
-    console.error(`[login-diag] compare=${r}`);
-    return r;
+  const salt = process.env.ADMIN_SALT;
+  if (hash && salt) {
+    const calc = scryptHex(pass, salt);
+    try {
+      return timingSafeEqual(Buffer.from(calc, "hex"), Buffer.from(hash, "hex"));
+    } catch { return false; }
   }
   // Desarrollo: permite ADMIN_PASS en texto plano (nunca se sube al servidor)
   if (process.env.ADMIN_PASS) return pass === process.env.ADMIN_PASS;
