@@ -111,12 +111,12 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   const thumbMaxW = 50, thumbMaxH = 32;
   const drawHead = () => {
     let x = M;
-    c.page.drawRectangle({ x: M, y: c.y - 6, width: total, height: 24, color: NAVY });
+    c.page.drawRectangle({ x: M, y: c.y - 30, width: total, height: 24, color: NAVY });
     cols.forEach((col) => {
-      c.page.drawText(col.t.toUpperCase(), { x: x + 6, y: c.y, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+      c.page.drawText(col.t.toUpperCase(), { x: x + 6, y: c.y - 15, size: 9.5, font: fb, color: rgb(1, 1, 1) });
       x += col.w;
     });
-    c.y -= 24;
+    c.y -= 30;
   };
   drawHead();
   let i = 0;
@@ -325,27 +325,17 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await tituloSeccion(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
     }
-    // Flujo responsivo: cada unidad salta de hoja SOLO si no cabe su estimado
+    // Cada unidad en su propia hoja (no compartidas)
     let primeraUnidad = true;
     for (const e of eqs) {
-      const fotos = [e.foto, (e as Record<string, unknown>).foto2, (e as Record<string, unknown>).foto3]
-        .filter((f) => typeof f === "string" && (f as string).length > 0).length;
-      const obsLen = String(e.observaciones || "").length;
-      const estimado = 28 + (fotos ? 200 : 80) + 16 + 7 * 26 + Math.ceil(obsLen / 55) * 13 + 24;
-      if (!primeraUnidad) {
-        if (c.y - estimado < 66) await nueva(c);
-        else {
-          // Separador sutil entre unidades en la misma hoja
-          c.page.drawLine({ start: { x: M, y: c.y }, end: { x: c.pgW - M, y: c.y }, thickness: 0.75, color: rgb(0.79, 0.66, 0.25) });
-          c.y -= 14;
-        }
-      }
+      if (!primeraUnidad || kind === "general") await nueva(c);
       primeraUnidad = false;
       await contenidoFichaEquipo(c, doc, e);
     }
     if (kind === "equipos") {
-      c.y -= 4;
+      c.y -= 14; // aire antes de las notas finales
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
+      c.y -= 6;
       await parrafo(c, "Fin del inventario.");
     }
   }
@@ -353,8 +343,9 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await tituloSeccion(c, "5. Entrega del área");
     await parrafo(c, "Se deja constancia del estado actual del inventario, liderazgo, personal,");
     await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
-    c.y -= 30;
+    c.y -= 34; // aire antes de las firmas (notas finales no pegadas)
     await parrafo(c, `Entregado por: ${firmaNombre()}`);
+    c.y -= 8;
     await parrafo(c, "Recibido por: ____________________     Firma: __________");
   }
   pie(c);
