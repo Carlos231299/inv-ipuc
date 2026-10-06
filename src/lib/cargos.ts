@@ -4,7 +4,7 @@ export const CARGOS: { grupo: string; cargos: string[] }[] = [
   { grupo: "Junta Local", cargos: ["Miembro de Junta Local", "Secretario local", "Tesorero local"] },
   {
     grupo: "Directivas de Comités",
-    cargos: ["Presidente / Director", "Vicepresidente", "Secretario", "Tesorero", "Vocal", "Líder de Música"],
+    cargos: ["Presidente / Director", "Vicepresidente", "Secretario", "Tesorero", "Vocal"],
   },
   {
     grupo: "Líderes de Ministerios",

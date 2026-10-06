@@ -4,9 +4,10 @@ import { ajuste, db } from "@/lib/db";
 
 export async function GET() {
   if (!(await sessionUser())) return NextResponse.json({ error: "no auth" }, { status: 401 });
+  const cargo = ajuste("firma_cargo") ?? "Líder de Alabanza";
   return NextResponse.json({
     firma_nombre: ajuste("firma_nombre") ?? "Gerson Acosta",
-    firma_cargo: ajuste("firma_cargo") ?? "Líder de Música",
+    firma_cargo: cargo === "Líder de Música" ? "Líder de Alabanza" : cargo,
   });
 }
 

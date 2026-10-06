@@ -5,10 +5,14 @@ import { DATA_DIR, db, totalRecogido, ajuste } from "./db";
 import { eq, ep, fmtCOP, HEADER_IGLESIA } from "./etiquetas";
 
 
+export function firmaCargo(): string {
+  const c = ajuste("firma_cargo") ?? "Líder de Alabanza";
+  // Migración: valor temporal antiguo -> cargo formal
+  return c === "Líder de Música" ? "Líder de Alabanza" : c;
+}
 export function firmaTexto(): string {
   const n = ajuste("firma_nombre") ?? "Gerson Acosta";
-  const c = ajuste("firma_cargo") ?? "Líder de Música";
-  return `Generado por ${n} – ${c}`;
+  return `Generado por ${n} – ${firmaCargo()}`;
 }
 export function firmaNombre(): string {
   return ajuste("firma_nombre") ?? "Gerson Acosta";
@@ -159,9 +163,16 @@ async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)
 }
 
 async function titulo2(c: Ctx, t: string) {
-  if (c.y < 90) await nueva(c);
+  // Anti-huérfanos: si quedan <200px, el título baja a hoja nueva
+  if (c.y < 200) await nueva(c);
   c.page.drawText(t, { x: M, y: c.y, size: 13, font: c.bold, color: NAVY });
   c.y -= 22;
+}
+
+// Secciones del general: siempre arrancan en hoja nueva (salvo página fresca)
+async function tituloSeccion(c: Ctx, t: string) {
+  if (c.y < c.pgH - 130) await nueva(c);
+  await titulo2(c, t);
 }
 
 async function parrafo(c: Ctx, t: string) {
@@ -222,7 +233,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
 
   const d = db();
   if (kind === "personal" || kind === "general") {
-    if (kind === "general") await titulo2(c, "1. Personal");
+    if (kind === "general") await tituloSeccion(c, "1. Personal");
     const ints = d.prepare("SELECT * FROM integrantes ORDER BY nombre").all() as Record<string, unknown>[];
     const rows = ints.map((r) => [
       String(r.nombre), ep(String(r.estado)),
@@ -231,7 +242,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await tabla(c, [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
   }
   if (kind === "grupos" || kind === "general") {
-    if (kind === "general") await titulo2(c, "2. Grupos de voces");
+    if (kind === "general") await tituloSeccion(c, "2. Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
     const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as { id: number; nombre: string }[];
     for (const g of gs) {
@@ -246,7 +257,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await parrafo(c, "Nota: el grupo del domingo en la noche repite el martes.");
   }
   if (kind === "alcancia" || kind === "general") {
-    if (kind === "general") await titulo2(c, "3. Alcancía / voto");
+    if (kind === "general") await tituloSeccion(c, "3. Alcancía / voto");
     const rows = d.prepare(
       `SELECT i.nombre, a.dio, a.monto FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
        WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
@@ -259,7 +270,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     const eqs = d.prepare("SELECT * FROM equipos ORDER BY tipo, numero").all() as Record<string, unknown>[];
     const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
     if (kind === "general") {
-      await titulo2(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
+      await tituloSeccion(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
     }
     let primera = kind === "equipos";
@@ -275,7 +286,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     }
   }
   if (kind === "general") {
-    await titulo2(c, "5. Entrega del área");
+    await tituloSeccion(c, "5. Entrega del área");
     await parrafo(c, "Se deja constancia del estado actual del inventario, liderazgo, personal,");
     await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
     c.y -= 30;
