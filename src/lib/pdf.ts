@@ -392,7 +392,8 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     // van SOLO en la primera hoja de inventario (las demás, limpias).
     let primeraUnidad = true;
     for (const e of eqs) {
-      if (!primeraUnidad) await nueva(c);
+      // En el general, hoja fresca ANTES del título: título + 1ra unidad juntos
+      if (!primeraUnidad || kind === "general") await nueva(c);
       if (kind === "general" && primeraUnidad) {
         await titulo2(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
         await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
