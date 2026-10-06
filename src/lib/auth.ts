@@ -52,9 +52,14 @@ export async function requireUser(): Promise<string> {
 
 export async function checkLogin(user: string, pass: string): Promise<boolean> {
   const wantUser = process.env.ADMIN_USER || "Gerson19";
+  console.error(`[login-diag] user_len=${user?.length} want_len=${wantUser?.length} match=${user === wantUser} hash_len=${process.env.ADMIN_PASS_HASH?.length || 0}`);
   if (user !== wantUser) return false;
   const hash = process.env.ADMIN_PASS_HASH;
-  if (hash) return bcrypt.compare(pass, hash);
+  if (hash) {
+    const r = await bcrypt.compare(pass, hash);
+    console.error(`[login-diag] compare=${r}`);
+    return r;
+  }
   // Desarrollo: permite ADMIN_PASS en texto plano (nunca se sube al servidor)
   if (process.env.ADMIN_PASS) return pass === process.env.ADMIN_PASS;
   return false;
