@@ -396,6 +396,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       if (!primeraUnidad || kind === "general") await nueva(c);
       if (kind === "general" && primeraUnidad) {
         await titulo2(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
+        c.y -= 8; // <br> suave entre título y totales (ni pegado ni brusco)
         await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
         c.y -= 4;
       }
