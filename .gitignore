@@ -1,0 +1,10 @@
+# Llave AWS: NUNCA subir ni commitear
+*.pem
+# Datos locales y build
+node_modules/
+.next/
+data/*.db*
+data/.secret
+data/fotos/
+data/escudo/
+.env*.local
