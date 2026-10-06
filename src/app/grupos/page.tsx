@@ -14,7 +14,7 @@ export default function Grupos() {
   }, []);
   return (
     <Shell ruta="/grupos">
-      <h2>🎶 Grupos de voces</h2>
+      <h2>🎶 Alabanza — Grupos de voces</h2>
       <div className="btnrow">
         <a className="btn sec sm" href="/api/reportes?kind=grupos">PDF grupos + rotación</a>
       </div>

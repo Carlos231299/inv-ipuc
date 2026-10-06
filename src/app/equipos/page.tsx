@@ -28,7 +28,7 @@ export default function Equipos() {
   const enUso = lista.filter((e) => e.estado === "EN_USO").length;
   return (
     <Shell ruta="/equipos">
-      <h2>🔊 Equipos de sonido</h2>
+      <h2>📦 Inventario de equipos</h2>
       <p className="mut">{lista.length} unidades · {enUso} en uso · cada #n tiene su foto y estado</p>
       <div className="btnrow">
         <button className="btn sm" onClick={() => setEd({ ...VACIO, numero: lista.length + 1 })}>+ Unidad</button>

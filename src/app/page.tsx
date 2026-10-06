@@ -1,58 +1,67 @@
 import Shell from "@/components/Shell";
-import { integrantes, equipos, rotacion, nombreGrupo, totalRecogido, aportes, grupos } from "@/lib/db";
-import { ep, eq, fmtCOP } from "@/lib/etiquetas";
+import { integrantes, equipos, totalRecogido, aportes, grupos } from "@/lib/db";
+import { eq, fmtCOP } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
 
-export default function Resumen() {
+export default function Inicio() {
   const ints = integrantes();
-  const act = ints.filter((i) => i.estado === "ACTIVO");
-  const noAct = ints.filter((i) => i.estado !== "ACTIVO");
+  const act = ints.filter((i) => i.estado === "ACTIVO").length;
   const eqs = equipos();
-  const rot = rotacion();
-  const gs = grupos();
+  const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
+  const alerta = eqs.filter((e) => e.estado === "DAÑADO" || e.estado === "MANTENIMIENTO").length;
+  const sinUso = eqs.filter((e) => e.estado === "SIN_USO").length;
   const aps = aportes();
   const dieron = aps.filter((a) => a.dio).length;
-  const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
+  const porTipo: Record<string, number> = {};
+  eqs.forEach((e) => { porTipo[e.tipo] = (porTipo[e.tipo] || 0) + 1; });
 
   return (
     <Shell ruta="/">
-      <h2>🎶 Grupo de Alabanza 2026</h2>
-      <p className="mut">Resumen de lo que se lleva hasta el momento · IPUC 19, Maicao — Altos del Parrantial</p>
-      <div className="stats">
-        <div className="stat"><b>{act.length}</b><span>Activos</span></div>
-        <div className="stat"><b>{fmtCOP(totalRecogido())}</b><span>Alcancía ({dieron} dieron)</span></div>
-        <div className="stat"><b>{eqs.length}</b><span>Equipos ({enUso} en uso)</span></div>
-        <div className="stat"><b>{gs.length}</b><span>Grupos de voces</span></div>
-      </div>
-
-      <div className="card">
-        <div className="t">1. Personal activo ({act.length})</div>
-        {act.map((i) => <div key={i.id} className="s">• {i.nombre} — {nombreGrupo(i.grupo_id)} · {i.rol}</div>)}
-        <h3>Miembros no activos ({noAct.length})</h3>
-        {noAct.map((i) => <div key={i.id} className="s">• {i.nombre} — {ep(i.estado)}</div>)}
-      </div>
-
-      <div className="card">
-        <div className="t">2. Grupos de voces</div>
-        {gs.map((g) => (
-          <div key={g.id} className="s">• <b>{g.nombre}:</b> {ints.filter((i) => i.grupo_id === g.id).map((i) => i.nombre).join(", ") || "—"}</div>
-        ))}
-        <h3>Rotación</h3>
-        {rot.map((r) => <div key={r.id} className="s">• {r.dia}: {nombreGrupo(r.grupo_id)}</div>)}
-      </div>
-
-      <div className="card">
-        <div className="t">3. Equipos de sonido</div>
-        {eqs.map((e) => <div key={e.id} className="s">• {e.nombre} — {eq(e.estado)} · {e.ubicacion}</div>)}
+      <div className="hero">
+        <h2>📦 Inventario IPUC 19</h2>
+        <p>Maicao — Altos del Parrantial · {eqs.length} unidades registradas</p>
+        <div className="hstats">
+          <div><b>{eqs.length}</b><span>Unidades</span></div>
+          <div className="dot-gold"><b>{enUso}</b><span>En uso</span></div>
+          <div><b>{alerta}</b><span>En alerta</span></div>
+        </div>
       </div>
 
       <div className="btnrow">
-        <a className="btn" href="/api/reportes?kind=general">📄 PDF resumen general</a>
-        <a className="btn sec" href="/api/reportes?kind=general&format=csv" style={{ display: "none" }}>CSV</a>
+        <a className="btn sm gold" href="/equipos">🔊 Ver inventario</a>
+        <a className="btn sec sm" href="/api/reportes?kind=equipos">📄 PDF inventario</a>
       </div>
-      <p className="mut">Entregado por: Gerson Acosta · {FOOT()}</p>
+
+      <div className="sect"><h3>Estado del inventario</h3><a href="/equipos">Ver todo →</a></div>
+      <div className="stats">
+        <div className="stat"><b>{enUso}</b><span>En uso</span></div>
+        <div className="stat"><b>{sinUso}</b><span>Sin uso</span></div>
+        <div className="stat"><b>{alerta}</b><span>Dañado / Mant.</span></div>
+        <div className="stat"><b>{Object.keys(porTipo).length}</b><span>Tipos</span></div>
+      </div>
+
+      <div className="card accent">
+        <div className="t">📋 Por tipo</div>
+        {Object.entries(porTipo).map(([t, n]) => (
+          <div key={t} className="s">• <b>{t}:</b> {n} {n === 1 ? "unidad" : "unidades"}</div>
+        ))}
+        {eqs.filter((e) => e.estado !== "EN_USO").slice(0, 5).map((e) => (
+          <div key={e.id} className="s">⚠️ {e.nombre} — {eq(e.estado)} · {e.ubicacion}</div>
+        ))}
+      </div>
+
+      <div className="sect"><h3>Módulo Alabanza</h3><a href="/personal">Abrir →</a></div>
+      <div className="stats">
+        <div className="stat"><b>{act}</b><span>Activos</span></div>
+        <div className="stat"><b>{grupos().length}</b><span>Grupos</span></div>
+        <div className="stat"><b>{fmtCOP(totalRecogido())}</b><span>Alcancía</span></div>
+        <div className="stat"><b>{dieron}</b><span>Dieron</span></div>
+      </div>
+      <div className="btnrow">
+        <a className="btn sm" href="/api/reportes?kind=general">📄 PDF resumen general</a>
+      </div>
+      <p className="mut">Generado por Gerson Acosta – Líder de Música</p>
     </Shell>
   );
 }
-function FOOT() { return "Generado por Gerson Acosta – Líder de Música"; }

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const NAV = [
-  { h: "/", t: "Resumen", i: "🏠" },
+  { h: "/", t: "Inicio", i: "🏠" },
+  { h: "/equipos", t: "Inventario", i: "🔊" },
   { h: "/personal", t: "Personal", i: "👥" },
-  { h: "/grupos", t: "Grupos", i: "🎶" },
+  { h: "/grupos", t: "Alabanza", i: "🎶" },
   { h: "/alcancia", t: "Alcancía", i: "💰" },
-  { h: "/equipos", t: "Equipos", i: "🔊" },
   { h: "/ajustes", t: "Ajustes", i: "⚙️" },
 ];
 
@@ -24,8 +24,8 @@ export default function Shell({ ruta, children }: { ruta: string; children: Reac
         <div className="in">
           {logo ? <img className="esc" src={logo} alt="Escudo" /> : null}
           <div>
-            <h1>Grupo de Alabanza 2026</h1>
-            <small>IPUC 19, Maicao — Altos del Parrantial</small>
+            <h1>Inventario IPUC 19</h1>
+            <small>Maicao — Altos del Parrantial</small>
           </div>
           <a className="out" href="/api/auth/logout">Salir</a>
         </div>

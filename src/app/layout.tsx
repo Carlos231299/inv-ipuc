@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Alabanza IPUC 19 — Inventario",
-  description: "Inventario y reportes del Grupo de Alabanza IPUC 19, Maicao",
+  title: "Inventario IPUC 19",
+  description: "Inventario de equipos y reportes — IPUC 19, Maicao, Altos del Parrantial",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
