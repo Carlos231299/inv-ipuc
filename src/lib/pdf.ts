@@ -24,7 +24,10 @@ const LIGHT = rgb(0.93, 0.95, 0.98);
 const GRAY = rgb(0.45, 0.45, 0.45);
 
 function fechaHora(): string {
-  return new Date().toLocaleString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleString("es-CO", {
+    timeZone: "America/Bogota",
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 function logoFile(): string | null {
@@ -105,7 +108,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
   const ff = c.font, fb = c.bold;
   // Aire antes de cada tabla + keep-with-next (header + 2 filas juntos)
   if (c.y < 160) await nueva(c);
-  c.y -= 8;
+  c.y -= 4;
   const conFoto = !!opts?.thumbs;
   const rowH = conFoto ? 40 : 22;
   const thumbMaxW = 50, thumbMaxH = 32;
@@ -150,7 +153,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
     c.page.drawLine({ start: { x: M, y: top - rh }, end: { x: M + total, y: top - rh }, thickness: 0.5, color: rgb(0.82, 0.85, 0.9) });
     c.y = top - rh; i++;
   }
-}
+  c.y -= 6; // aire tras la tabla para notas siguientes no pegadas
 
 // Carga miniaturas de fotos (rutas relativas a DATA_DIR) con caché
 async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)[]): Promise<(PDFImage | null)[]> {
@@ -169,8 +172,9 @@ async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)
 async function titulo2(c: Ctx, t: string) {
   // Anti-huérfanos calibrado: título + ~2 filas necesitan ~110px
   if (c.y < 110) await nueva(c);
+  else c.y -= 10; // aire tras tabla/contenido previo (no pegados)
   c.page.drawText(t, { x: M, y: c.y, size: 13, font: c.bold, color: NAVY });
-  c.y -= 22;
+  c.y -= 14;
 }
 
 // Secciones del general: hoja nueva SOLO si quedan <300px (si cabe, fluye)
@@ -325,10 +329,16 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await tituloSeccion(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
       await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
     }
-    // Cada unidad en su propia hoja (no compartidas)
+    // Cada unidad en su propia hoja. En el general, el título y totales
+    // van SOLO en la primera hoja de inventario (las demás, limpias).
     let primeraUnidad = true;
     for (const e of eqs) {
-      if (!primeraUnidad || kind === "general") await nueva(c);
+      if (!primeraUnidad) await nueva(c);
+      if (kind === "general" && primeraUnidad) {
+        await titulo2(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
+        await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
+        c.y -= 4;
+      }
       primeraUnidad = false;
       await contenidoFichaEquipo(c, doc, e);
     }
