@@ -52,7 +52,7 @@ export async function requireUser(): Promise<string> {
 
 export async function checkLogin(user: string, pass: string): Promise<boolean> {
   const wantUser = process.env.ADMIN_USER || "Gerson19";
-  console.error(`[login-diag] user_len=${user?.length} want_len=${wantUser?.length} match=${user === wantUser} hash_len=${process.env.ADMIN_PASS_HASH?.length || 0}`);
+  console.error(`[login-diag] user_len=${user?.length} want_len=${wantUser?.length} match=${user === wantUser} hash_len=${process.env.ADMIN_PASS_HASH?.length || 0} hash_head=${process.env.ADMIN_PASS_HASH?.slice(0, 8)} datadir_len=${process.env.DATA_DIR?.length || 0}`);
   if (user !== wantUser) return false;
   const hash = process.env.ADMIN_PASS_HASH;
   if (hash) {
