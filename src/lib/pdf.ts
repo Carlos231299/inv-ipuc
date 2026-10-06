@@ -116,7 +116,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
     let x = M;
     c.page.drawRectangle({ x: M, y: c.y - 30, width: total, height: 24, color: NAVY });
     cols.forEach((col) => {
-      c.page.drawText(col.t.toUpperCase(), { x: x + 6, y: c.y - 15, size: 9.5, font: fb, color: rgb(1, 1, 1) });
+      c.page.drawText(col.t.toUpperCase(), { x: x + 6, y: c.y - 21, size: 9.5, font: fb, color: rgb(1, 1, 1) });
       x += col.w;
     });
     c.y -= 30;
@@ -154,6 +154,7 @@ async function tabla(c: Ctx, cols: { t: string; w: number }[], filas: string[][]
     c.y = top - rh; i++;
   }
   c.y -= 6; // aire tras la tabla para notas siguientes no pegadas
+}
 
 // Carga miniaturas de fotos (rutas relativas a DATA_DIR) con caché
 async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)[]): Promise<(PDFImage | null)[]> {
@@ -325,10 +326,6 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     // Una hoja por unidad (lógica de ficha, breve): foto centrada + datos concisos
     const eqs = d.prepare("SELECT * FROM equipos ORDER BY tipo, numero").all() as Record<string, unknown>[];
     const enUso = eqs.filter((e) => e.estado === "EN_USO").length;
-    if (kind === "general") {
-      await tituloSeccion(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
-      await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
-    }
     // Cada unidad en su propia hoja. En el general, el título y totales
     // van SOLO en la primera hoja de inventario (las demás, limpias).
     let primeraUnidad = true;
@@ -370,6 +367,7 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
   const logo = lf ? await embedImg(doc, lf) : null;
   const nombre = tipo === "integrante" ? "Ficha de Integrante" : "Ficha de Equipo";
   const c = newCtx(doc, font, bold, logo, nombre);
+  c.y += 25; // el título ya va en el encabezado: se aprovecha el alto de la hoja
   const d = db();
   if (tipo === "integrante") {
     const r = d.prepare("SELECT * FROM integrantes WHERE id=?").get(id) as Record<string, unknown> | undefined;

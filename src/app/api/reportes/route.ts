@@ -16,9 +16,13 @@ export async function GET(req: Request) {
   const bytes = kind === "ficha-integrante" ? await buildFicha("integrante", id)
     : kind === "ficha-equipo" ? await buildFicha("equipo", id)
     : await buildPdf(kind as ReportKind);
-  return new NextResponse(Buffer.from(bytes), {
+  const buf = Buffer.from(bytes);
+  return new NextResponse(buf, {
     headers: {
       "Content-Type": "application/pdf",
+      "Content-Length": String(buf.length),
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, max-age=60",
       "Content-Disposition": `inline; filename="${FN[kind] || kind}.pdf"`,
     },
   });
