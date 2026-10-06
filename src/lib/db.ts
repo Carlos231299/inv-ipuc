@@ -37,12 +37,12 @@ function schema(d: DatabaseSync) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, dia TEXT NOT NULL, grupo_id INTEGER, orden INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS ajustes (clave TEXT PRIMARY KEY, valor TEXT);
     DROP TABLE IF EXISTS lideres;
-    // Evidencias: mínimo 3 fotos por unidad (diferentes ángulos)
-    const colsEq = d.prepare("PRAGMA table_info(equipos)").all() as { name: string }[];
-    for (const col of ["foto2", "foto3"]) {
-      if (!colsEq.some((x) => x.name === col)) d.exec(`ALTER TABLE equipos ADD COLUMN ${col} TEXT`);
-    }
   `);
+  // Evidencias: mínimo 3 fotos por unidad (diferentes ángulos)
+  const colsEq = d.prepare("PRAGMA table_info(equipos)").all() as { name: string }[];
+  for (const col of ["foto2", "foto3"]) {
+    if (!colsEq.some((x) => x.name === col)) d.exec(`ALTER TABLE equipos ADD COLUMN ${col} TEXT`);
+  }
 }
 
 export type Integrante = {
