@@ -344,83 +344,18 @@ async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, 
   ]);
 }
 
-// ===== SECCIÓN 3 (general): Acta de Entrega y Firma (diseño tarjeta visual) =====
+// ===== SECCIÓN 3 (general): Acta de Entrega y Firma (versión sobria) =====
 async function seccionActaEntrega(c: Ctx) {
-  const p = c.page;
-  const BLANCO = rgb(1, 1, 1);
-  const GOLD = rgb(0.79, 0.64, 0.15);
-  const ancho = c.pgW - M * 2;
-
   await tituloSeccion(c, "3. Acta de Entrega y Firma");
-
-  // --- Bloque encabezado azul (fondo navy) ---
-  const hHead = 104;
-  if (c.y - hHead < 70) await nueva(c);
-  p.drawRectangle({ x: M, y: c.y - hHead, width: ancho, height: hHead, color: NAVY });
-  const cx = (txt: string, size: number, f: typeof c.font) =>
-    M + (ancho - f.widthOfTextAtSize(txt, size)) / 2;
-  p.drawText("GRUPO DE", { x: cx("GRUPO DE", 10, c.font), y: c.y - 24, size: 10, font: c.font, color: BLANCO });
-  p.drawText("Alabanza", { x: cx("Alabanza", 30, c.bold), y: c.y - 60, size: 30, font: c.bold, color: BLANCO });
-  const pill = "2026";
-  const pillW = c.bold.widthOfTextAtSize(pill, 12) + 28;
-  p.drawRectangle({ x: M + (ancho - pillW) / 2, y: c.y - hHead + 10, width: pillW, height: 20, color: BLANCO });
-  p.drawText(pill, { x: M + (ancho - pillW) / 2 + 14, y: c.y - hHead + 15, size: 12, font: c.bold, color: NAVY });
-  c.y -= hHead + 10;
-
-  // --- Barra de sección ---
-  const hBar = 30;
-  if (c.y - hBar < 70) await nueva(c);
-  p.drawRectangle({ x: M, y: c.y - hBar, width: ancho, height: hBar, color: rgb(0.19, 0.3, 0.55) });
-  p.drawText("3. ACTA DE ENTREGA Y FIRMA", { x: M + 14, y: c.y - 21, size: 12, font: c.bold, color: BLANCO });
-  c.y -= hBar + 10;
-
-  // --- Bloques informativos (fondo claro + borde navy + círculo numerado) ---
-  const bloques = [
-    "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido.",
-    "Esta entrega deja constancia de la organización y el estado actual del Grupo de Alabanza, con el propósito de facilitar la continuidad del ministerio y servir como referencia para quienes continúen con esta responsabilidad.",
-  ];
-  for (let bi = 0; bi < bloques.length; bi++) {
-    const lineas = envolver(c.font, bloques[bi], 10, ancho - 84);
-    const hBlock = lineas.length * 14 + 28;
-    if (c.y - hBlock < 70) await nueva(c);
-    const yTop = c.y;
-    p.drawRectangle({ x: M, y: yTop - hBlock, width: ancho, height: hBlock, color: LIGHT, borderColor: NAVY, borderWidth: 1 });
-    // Círculo navy con número blanco
-    const ccx = M + 30, ccy = yTop - hBlock / 2;
-    p.drawCircle({ x: ccx, y: ccy, size: 14, color: NAVY });
-    const num = String(bi + 1);
-    p.drawText(num, { x: ccx - c.bold.widthOfTextAtSize(num, 11) / 2, y: ccy - 4, size: 11, font: c.bold, color: BLANCO });
-    lineas.forEach((ln, li) => {
-      p.drawText(ln, { x: M + 54, y: yTop - 20 - li * 14, size: 10, font: c.font, color: rgb(0.15, 0.18, 0.28) });
-    });
-    c.y -= hBlock + 10;
-  }
-
-  // --- Bloque firma (dinámica de Ajustes) ---
-  const nombre = firmaNombre();
-  const cargo = firmaCargo();
-  const hFirma = 74;
-  if (c.y - hFirma < 90) await nueva(c);
-  const yTopF = c.y;
-  p.drawRectangle({ x: M, y: yTopF - hFirma, width: ancho, height: hFirma, color: LIGHT, borderColor: NAVY, borderWidth: 1 });
-  p.drawCircle({ x: M + 30, y: yTopF - hFirma / 2, size: 14, color: NAVY });
-  // Inicial del nombre dentro del círculo
-  const inicial = (nombre.trim()[0] || "E").toUpperCase();
-  p.drawText(inicial, { x: M + 30 - c.bold.widthOfTextAtSize(inicial, 11) / 2, y: yTopF - hFirma / 2 - 4, size: 11, font: c.bold, color: BLANCO });
-  p.drawText("ENTREGADO POR:", { x: M + 54, y: yTopF - 24, size: 9, font: c.font, color: GRAY });
-  p.drawText(nombre, { x: M + 54, y: yTopF - 46, size: 17, font: c.bold, color: NAVY });
-  p.drawText(cargo, { x: M + 54, y: yTopF - 62, size: 10, font: c.font, color: GRAY });
-  c.y -= hFirma + 16;
-
-  // --- Líneas recibido + fecha ---
-  if (c.y < 110) await nueva(c);
-  p.drawText("Recibido por: ____________________     Firma: __________", { x: M, y: c.y, size: 10, font: c.font });
-  c.y -= 20;
-  p.drawText(`Fecha de entrega: ${fechaHora()}`, { x: M, y: c.y, size: 10, font: c.font, color: GRAY });
+  await parrafo(c, "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido.");
   c.y -= 6;
-  // Regla dorada de cierre
-  p.drawLine({ start: { x: M, y: c.y }, end: { x: M + ancho, y: c.y }, thickness: 1.5, color: GOLD });
-  c.y -= 4;
+  await parrafo(c, "Esta entrega deja constancia de la organización y el estado actual del Grupo de Alabanza, con el propósito de facilitar la continuidad del ministerio y servir como referencia para quienes continúen con esta responsabilidad.");
+  c.y -= 30; // aire antes de las firmas
+  await parrafo(c, `Entregado por: ${firmaNombre()} — ${firmaCargo()}`);
+  c.y -= 8;
+  await parrafo(c, "Recibido por: ____________________     Firma: __________");
+  c.y -= 8;
+  await parrafo(c, `Fecha de entrega: ${fechaHora()}`);
 }
 
 export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
