@@ -30,6 +30,10 @@ function fechaHora(): string {
   });
 }
 
+function fechaActa(): string {
+  return "siendo el __ del mes de __ del año __";
+}
+
 function logoFile(): string | null {
   const nombre = (db().prepare("SELECT valor FROM ajustes WHERE clave='logo'").get() as { valor: string } | undefined)?.valor;
   if (!nombre) return null;
@@ -346,6 +350,7 @@ async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, 
 
 // ===== SECCIÓN 3 (general): Acta de Entrega y Firma (versión sobria) =====
 async function seccionActaEntrega(c: Ctx) {
+  await nueva(c);
   await tituloSeccion(c, "3. Acta de Entrega y Firma");
   await parrafo(c, "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido.");
   c.y -= 6;
@@ -353,9 +358,11 @@ async function seccionActaEntrega(c: Ctx) {
   c.y -= 30; // aire antes de las firmas
   await parrafo(c, `Entregado por: ${firmaNombre()} — ${firmaCargo()}`);
   c.y -= 8;
+  await parrafo(c, "Firma del responsable: ____________________");
+  c.y -= 8;
   await parrafo(c, "Recibido por: ____________________     Firma: __________");
   c.y -= 8;
-  await parrafo(c, `Fecha de entrega: ${fechaHora()}`);
+  await parrafo(c, `Fecha de entrega: ${fechaActa()}`);
 }
 
 export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
