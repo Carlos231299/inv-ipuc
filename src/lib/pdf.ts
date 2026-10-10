@@ -383,7 +383,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await tabla(c, colsP, rows);
     const noAct = ints.filter(esNoActivo).map(filaP);
     if (noAct.length) {
-      await titulo2(c, "No activos (apartados, disponibles, etc.)");
+      await titulo2(c, "No activos");
       await tabla(c, colsP, noAct);
     }
   }
@@ -391,7 +391,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     if (kind === "general") await titulo2(c, "Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
     // Una sola tabla de 3 columnas: el grupo abarca las filas de sus integrantes
-    const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as { id: number; nombre: string }[];
+    const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY CASE nombre WHEN 'Linaje Escogido' THEN 1 WHEN 'Voces de Júbilo' THEN 2 WHEN 'Alabanza Celestial' THEN 3 ELSE 4 END").all() as { id: number; nombre: string }[];
     await tablaGrupos(c, gs);
     await titulo2(c, "Rotación semanal");
     const rot = d.prepare("SELECT dia, grupo_id FROM rotacion ORDER BY orden").all() as { dia: string; grupo_id: number }[];
@@ -402,8 +402,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "alcancia" || kind === "general") {
     if (kind === "general") await titulo2(c, "Alcancía / voto");
     const rows = d.prepare(
-      `SELECT i.nombre, a.dio, a.monto, COALESCE(a.sellada,0) AS sellada FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
-       WHERE i.estado IN ('ACTIVO','ASISTENTE','DISPONIBLE') ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number; sellada: number }[];
+      `SELECT i.nombre, a.dio, a.monto, COALESCE(a.sellada,0) AS sellada FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number; sellada: number }[];
     const celdaMonto = (r: { dio: number; monto: number; sellada: number }) =>
       !r.dio ? "—" : r.sellada ? "Sellada" : r.monto > 0 ? fmtCOP(r.monto) : "Dio";
     await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
