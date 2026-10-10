@@ -10,7 +10,7 @@ type F = { id: number; nombre: string; dio: number; monto: number; sellada: numb
 
 function chipAporte(i: F) {
   if (!i.dio) return <span className="chip warn">Pendiente</span>;
-  if (i.sellada) return <span className="chip ok">Sellada 🔒</span>;
+  if (i.sellada) return <span className="chip ok">Alcancía sellada</span>;
   if (i.monto > 0) return <span className="chip ok">Dio {fmtCOP(i.monto)}</span>;
   return <span className="chip ok">Dio ✅</span>;
 }
