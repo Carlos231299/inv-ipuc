@@ -344,6 +344,85 @@ async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, 
   ]);
 }
 
+// ===== SECCIÓN 3 (general): Acta de Entrega y Firma (diseño tarjeta visual) =====
+async function seccionActaEntrega(c: Ctx) {
+  const p = c.page;
+  const BLANCO = rgb(1, 1, 1);
+  const GOLD = rgb(0.79, 0.64, 0.15);
+  const ancho = c.pgW - M * 2;
+
+  await tituloSeccion(c, "3. Acta de Entrega y Firma");
+
+  // --- Bloque encabezado azul (fondo navy) ---
+  const hHead = 104;
+  if (c.y - hHead < 70) await nueva(c);
+  p.drawRectangle({ x: M, y: c.y - hHead, width: ancho, height: hHead, color: NAVY });
+  const cx = (txt: string, size: number, f: typeof c.font) =>
+    M + (ancho - f.widthOfTextAtSize(txt, size)) / 2;
+  p.drawText("GRUPO DE", { x: cx("GRUPO DE", 10, c.font), y: c.y - 24, size: 10, font: c.font, color: BLANCO });
+  p.drawText("Alabanza", { x: cx("Alabanza", 30, c.bold), y: c.y - 60, size: 30, font: c.bold, color: BLANCO });
+  const pill = "2026";
+  const pillW = c.bold.widthOfTextAtSize(pill, 12) + 28;
+  p.drawRectangle({ x: M + (ancho - pillW) / 2, y: c.y - hHead + 10, width: pillW, height: 20, color: BLANCO });
+  p.drawText(pill, { x: M + (ancho - pillW) / 2 + 14, y: c.y - hHead + 15, size: 12, font: c.bold, color: NAVY });
+  c.y -= hHead + 10;
+
+  // --- Barra de sección ---
+  const hBar = 30;
+  if (c.y - hBar < 70) await nueva(c);
+  p.drawRectangle({ x: M, y: c.y - hBar, width: ancho, height: hBar, color: rgb(0.19, 0.3, 0.55) });
+  p.drawText("3. ACTA DE ENTREGA Y FIRMA", { x: M + 14, y: c.y - 21, size: 12, font: c.bold, color: BLANCO });
+  c.y -= hBar + 10;
+
+  // --- Bloques informativos (fondo claro + borde navy + círculo numerado) ---
+  const bloques = [
+    "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido.",
+    "Esta entrega deja constancia de la organización y el estado actual del Grupo de Alabanza, con el propósito de facilitar la continuidad del ministerio y servir como referencia para quienes continúen con esta responsabilidad.",
+  ];
+  for (let bi = 0; bi < bloques.length; bi++) {
+    const lineas = envolver(c.font, bloques[bi], 10, ancho - 84);
+    const hBlock = lineas.length * 14 + 28;
+    if (c.y - hBlock < 70) await nueva(c);
+    const yTop = c.y;
+    p.drawRectangle({ x: M, y: yTop - hBlock, width: ancho, height: hBlock, color: LIGHT, borderColor: NAVY, borderWidth: 1 });
+    // Círculo navy con número blanco
+    const ccx = M + 30, ccy = yTop - hBlock / 2;
+    p.drawCircle({ x: ccx, y: ccy, size: 14, color: NAVY });
+    const num = String(bi + 1);
+    p.drawText(num, { x: ccx - c.bold.widthOfTextAtSize(num, 11) / 2, y: ccy - 4, size: 11, font: c.bold, color: BLANCO });
+    lineas.forEach((ln, li) => {
+      p.drawText(ln, { x: M + 54, y: yTop - 20 - li * 14, size: 10, font: c.font, color: rgb(0.15, 0.18, 0.28) });
+    });
+    c.y -= hBlock + 10;
+  }
+
+  // --- Bloque firma (dinámica de Ajustes) ---
+  const nombre = firmaNombre();
+  const cargo = firmaCargo();
+  const hFirma = 74;
+  if (c.y - hFirma < 90) await nueva(c);
+  const yTopF = c.y;
+  p.drawRectangle({ x: M, y: yTopF - hFirma, width: ancho, height: hFirma, color: LIGHT, borderColor: NAVY, borderWidth: 1 });
+  p.drawCircle({ x: M + 30, y: yTopF - hFirma / 2, size: 14, color: NAVY });
+  // Inicial del nombre dentro del círculo
+  const inicial = (nombre.trim()[0] || "E").toUpperCase();
+  p.drawText(inicial, { x: M + 30 - c.bold.widthOfTextAtSize(inicial, 11) / 2, y: yTopF - hFirma / 2 - 4, size: 11, font: c.bold, color: BLANCO });
+  p.drawText("ENTREGADO POR:", { x: M + 54, y: yTopF - 24, size: 9, font: c.font, color: GRAY });
+  p.drawText(nombre, { x: M + 54, y: yTopF - 46, size: 17, font: c.bold, color: NAVY });
+  p.drawText(cargo, { x: M + 54, y: yTopF - 62, size: 10, font: c.font, color: GRAY });
+  c.y -= hFirma + 16;
+
+  // --- Líneas recibido + fecha ---
+  if (c.y < 110) await nueva(c);
+  p.drawText("Recibido por: ____________________     Firma: __________", { x: M, y: c.y, size: 10, font: c.font });
+  c.y -= 20;
+  p.drawText(`Fecha de entrega: ${fechaHora()}`, { x: M, y: c.y, size: 10, font: c.font, color: GRAY });
+  c.y -= 6;
+  // Regla dorada de cierre
+  p.drawLine({ start: { x: M, y: c.y }, end: { x: M + ancho, y: c.y }, thickness: 1.5, color: GOLD });
+  c.y -= 4;
+}
+
 export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -353,8 +432,10 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   const c = newCtx(doc, font, bold, logo, TITULOS[kind]);
 
   const d = db();
+  // ===== SECCIÓN 1 (general): Grupo de Alabanza 2026 — Personal + Grupos + Alcancía =====
+  if (kind === "general") await tituloSeccion(c, "1. Grupo de Alabanza 2026");
   if (kind === "personal" || kind === "general") {
-    if (kind === "general") await tituloSeccion(c, "1. Personal");
+    if (kind === "general") await titulo2(c, "Personal");
     const ints = d.prepare("SELECT * FROM integrantes ORDER BY nombre").all() as Record<string, unknown>[];
     const rows = ints.map((r) => [
       String(r.nombre), ep(String(r.estado)),
@@ -363,7 +444,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await tabla(c, [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
   }
   if (kind === "grupos" || kind === "general") {
-    if (kind === "general") await tituloSeccion(c, "2. Grupos de voces");
+    if (kind === "general") await titulo2(c, "Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
     // Una sola tabla de 3 columnas: el grupo abarca las filas de sus integrantes
     const gs = d.prepare("SELECT * FROM grupos_voz ORDER BY nombre").all() as { id: number; nombre: string }[];
@@ -375,7 +456,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     await parrafo(c, "Nota: el grupo del domingo en la noche repite el martes.");
   }
   if (kind === "alcancia" || kind === "general") {
-    if (kind === "general") await tituloSeccion(c, "3. Alcancía / voto");
+    if (kind === "general") await titulo2(c, "Alcancía / voto");
     const rows = d.prepare(
       `SELECT i.nombre, a.dio, a.monto, COALESCE(a.sellada,0) AS sellada FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
        WHERE i.estado IN ('ACTIVO','ASISTENTE','DISPONIBLE') ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number; sellada: number }[];
@@ -397,7 +478,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       // En el general, hoja fresca ANTES del título: título + 1ra unidad juntos
       if (!primeraUnidad || kind === "general") await nueva(c);
       if (kind === "general" && primeraUnidad) {
-        await titulo2(c, `4. Equipos de sonido (${eqs.length} unidades, una por hoja)`);
+        await tituloSeccion(c, `2. Inventario (${eqs.length} unidades, una por hoja)`);
         c.y -= 8; // <br> suave entre título y totales (ni pegado ni brusco)
         await parrafo(c, `Total: ${eqs.length} unidades · En uso: ${enUso}.`);
         c.y -= 4;
@@ -413,13 +494,7 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
     }
   }
   if (kind === "general") {
-    await tituloSeccion(c, "5. Entrega del área");
-    await parrafo(c, "Se deja constancia del estado actual del inventario, liderazgo, personal,");
-    await parrafo(c, "grupos de voces, rotación y equipos de sonido.");
-    c.y -= 34; // aire antes de las firmas (notas finales no pegadas)
-    await parrafo(c, `Entregado por: ${firmaNombre()}`);
-    c.y -= 8;
-    await parrafo(c, "Recibido por: ____________________     Firma: __________");
+    await seccionActaEntrega(c);
   }
   pie(c);
   return doc.save();
