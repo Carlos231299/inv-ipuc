@@ -372,19 +372,19 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "personal" || kind === "general") {
     if (kind === "general") await titulo2(c, "Personal");
     const ints = d.prepare("SELECT * FROM integrantes ORDER BY nombre").all() as Record<string, unknown>[];
-    const esApartado = (r: Record<string, unknown>) =>
-      String(r.estado) === "APARTADO" || String(r.atributo || "") === "APARTADO";
+    const esNoActivo = (r: Record<string, unknown>) =>
+      String(r.estado) !== "ACTIVO" || String(r.atributo || "") === "APARTADO";
     const filaP = (r: Record<string, unknown>) => [
       String(r.nombre), ep(String(r.estado)),
       nombreDe(Number(r.grupo_id)), String(r.rol) || "—",
     ];
     const colsP = [{ t: "Nombre", w: 170 }, { t: "Estado", w: 100 }, { t: "Grupo", w: 135 }, { t: "Rol", w: 110 }];
-    const rows = ints.filter((r) => !esApartado(r)).map(filaP);
+    const rows = ints.filter((r) => !esNoActivo(r)).map(filaP);
     await tabla(c, colsP, rows);
-    const aparts = ints.filter(esApartado).map(filaP);
-    if (aparts.length) {
-      await titulo2(c, "Apartados");
-      await tabla(c, colsP, aparts);
+    const noAct = ints.filter(esNoActivo).map(filaP);
+    if (noAct.length) {
+      await titulo2(c, "No activos (apartados, disponibles, etc.)");
+      await tabla(c, colsP, noAct);
     }
   }
   if (kind === "grupos" || kind === "general") {
