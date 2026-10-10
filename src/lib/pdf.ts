@@ -190,9 +190,9 @@ async function cargarThumbs(doc: PDFDocument, rutas: (string | null | undefined)
 async function titulo2(c: Ctx, t: string) {
   // Anti-huérfanos calibrado: título + ~2 filas necesitan ~110px
   if (c.y < 110) await nueva(c);
-  else c.y -= 20; // aire tras tabla/contenido previo (no pegados)
+  else c.y -= 10; // aire tras tabla/contenido previo (no pegados)
   c.page.drawText(t, { x: M, y: c.y, size: 13, font: c.bold, color: NAVY });
-  c.y -= 20;
+  c.y -= 10;
 }
 
 // Secciones del general: hoja nueva SOLO si quedan <300px (si cabe, fluye)
@@ -394,7 +394,6 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
       await tabla(c, colsP, noAct);
     }
   }
-  await nueva(c);
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await titulo2(c, "Grupos de voces");
     else await titulo2(c, "Integrantes por grupo");
