@@ -372,11 +372,20 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "personal" || kind === "general") {
     if (kind === "general") await titulo2(c, "Personal");
     const ints = d.prepare("SELECT * FROM integrantes ORDER BY nombre").all() as Record<string, unknown>[];
-    const rows = ints.map((r) => [
+    const esApartado = (r: Record<string, unknown>) =>
+      String(r.estado) === "APARTADO" || String(r.atributo || "") === "APARTADO";
+    const filaP = (r: Record<string, unknown>) => [
       String(r.nombre), ep(String(r.estado)),
-      nombreDe(Number(r.grupo_id)), String(r.rol), String(r.telefono || "—"),
-    ]);
-    await tabla(c, [{ t: "Nombre", w: 150 }, { t: "Estado", w: 95 }, { t: "Grupo", w: 120 }, { t: "Rol", w: 70 }, { t: "Teléfono", w: 80 }], rows);
+      nombreDe(Number(r.grupo_id)), String(r.rol) || "—",
+    ];
+    const colsP = [{ t: "Nombre", w: 170 }, { t: "Estado", w: 100 }, { t: "Grupo", w: 135 }, { t: "Rol", w: 110 }];
+    const rows = ints.filter((r) => !esApartado(r)).map(filaP);
+    await tabla(c, colsP, rows);
+    const aparts = ints.filter(esApartado).map(filaP);
+    if (aparts.length) {
+      await titulo2(c, "Apartados");
+      await tabla(c, colsP, aparts);
+    }
   }
   if (kind === "grupos" || kind === "general") {
     if (kind === "general") await titulo2(c, "Grupos de voces");
@@ -464,7 +473,7 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
       ["Nombre", String(r.nombre)], ["Estado", ep(String(r.estado))],
       ["Atributo", r.atributo ? ep(String(r.atributo)) : "—"],
       ["Grupo", nombreDe(Number(r.grupo_id))], ["Rol", String(r.rol) || "—"],
-      ["Teléfono", String(r.telefono || "—")], ["Observaciones", String(r.observaciones || "—")],
+      ["Observaciones", String(r.observaciones || "—")],
     ]);
   } else {
     const r = d.prepare("SELECT * FROM equipos WHERE id=?").get(id) as Record<string, unknown> | undefined;

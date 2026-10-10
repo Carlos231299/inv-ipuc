@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
 import RolInput from "@/components/RolInput";
+import Modal from "@/components/Modal";
 import { ep, fmtCOP } from "@/lib/etiquetas";
 import { confirmar, exito, fallar } from "@/lib/alertas";
 
@@ -59,8 +60,7 @@ export default function Personal() {
       <p className="mut">{fil.length} personas</p>
 
       {ed ? (
-        <div className="card">
-          <h3>{ed.id === 0 ? "Nuevo integrante" : "Editar integrante"}</h3>
+        <Modal titulo={ed.id === 0 ? "Nuevo integrante" : "Editar integrante"} onCerrar={() => setEd(null)}>
           <FotoInput valor={ed.foto} onFoto={(x) => setEd({ ...ed, foto: x })} />
           <label>Nombre *</label>
           <input value={ed.nombre} onChange={(e) => setEd({ ...ed, nombre: e.target.value })} />
@@ -84,8 +84,6 @@ export default function Personal() {
                 {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
               </select></div>
           </div>
-          <label>Teléfono</label>
-          <input value={ed.telefono} onChange={(e) => setEd({ ...ed, telefono: e.target.value })} inputMode="tel" />
           <label>Observaciones</label>
           <input value={ed.observaciones} onChange={(e) => setEd({ ...ed, observaciones: e.target.value })} />
           <div className="row">
@@ -97,7 +95,7 @@ export default function Personal() {
             <button className="btn sm" onClick={guardar}>Guardar</button>
             <button className="btn sec sm" onClick={() => setEd(null)}>Cancelar</button>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {fil.map((i) => (
@@ -106,7 +104,6 @@ export default function Personal() {
           <div className="grow">
             <div className="t">{i.nombre}</div>
             <div className="s">{ep(i.estado)}{i.atributo ? ` · ${ep(i.atributo)}` : ""} · {i.grupo} · {i.rol || "Por asignar"}</div>
-            {i.telefono ? <div className="s">Tel: {i.telefono}</div> : null}
             <div className="s">{i.dio ? `Alcancía: ${fmtCOP(i.monto)} ✅` : "Alcancía: pendiente ❌"}</div>
             <div className="btnrow">
               <button className="btn sec sm" onClick={() => setEd({ ...i })}>Editar</button>
