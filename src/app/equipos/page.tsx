@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
+import Modal from "@/components/Modal";
 import { eq } from "@/lib/etiquetas";
 import { confirmar, exito, fallar } from "@/lib/alertas";
 
@@ -50,8 +51,7 @@ export default function Equipos() {
         <a className="btn sec sm" href={`/api/reportes?kind=equipos&v=${V}`}>PDF general</a>
       </div>
       {ed ? (
-        <div className="card">
-          <h3>Unidad #{ed.numero || "?"}</h3>
+        <Modal titulo={`Unidad #${ed.numero || "?"}`} onCerrar={() => setEd(null)}>
           <p className="mut">📷 Mínimo 3 fotos de diferentes ángulos para ver el estado real.</p>
           {([["foto", FOTOS_LABEL[0]], ["foto2", FOTOS_LABEL[1]], ["foto3", FOTOS_LABEL[2]]] as const).map(([k, label]) => (
             <div key={k}>
@@ -81,7 +81,7 @@ export default function Equipos() {
             <button className="btn sm" onClick={guardar}>Guardar</button>
             <button className="btn sec sm" onClick={() => setEd(null)}>Cancelar</button>
           </div>
-        </div>
+        </Modal>
       ) : null}
       {lista.map((e) => (
         <div key={e.id} className="card item">
