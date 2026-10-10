@@ -352,9 +352,9 @@ async function contenidoFichaEquipo(c: Ctx, doc: PDFDocument, r: Record<string, 
 async function seccionActaEntrega(c: Ctx) {
   await nueva(c);
   await tituloSeccion(c, "3. Acta de Entrega y Firma");
-  await parrafo(c, "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido.");
+  await parrafo(c, "La presente información se organiza con el propósito de dejar constancia del estado actual del Grupo de Alabanza, su personal, grupos de voces, rotación y equipos de sonido. En ella se detalla, de manera ordenada y veraz, la conformación del grupo, los integrantes que lo componen, la asignación de cada uno a su respectivo grupo de voces, la rotación de los servicios y el inventario de los equipos de sonido con que cuenta el ministerio, incluyendo su estado y ubicación.");
   c.y -= 6;
-  await parrafo(c, "Esta entrega deja constancia de la organización y el estado actual del Grupo de Alabanza, con el propósito de facilitar la continuidad del ministerio y servir como referencia para quienes continúen con esta responsabilidad.");
+  await parrafo(c, "Esta entrega deja constancia de la organización y el estado actual del Grupo de Alabanza, con el propósito de facilitar la continuidad del ministerio y servir como referencia para quienes continúen con esta responsabilidad. Se realiza en un espíritu de transparencia, orden y servicio, buscando que la labor de alabanza se conserve y se fortalezca con el paso del tiempo, y que quienes reciban esta encomienda cuenten con la información necesaria para desempeñarla con claridad y responsabilidad.");
   c.y -= 30; // aire antes de las firmas
   await parrafo(c, `Entregado por: ${firmaNombre()} — ${firmaCargo()}`);
   c.y -= 8;
