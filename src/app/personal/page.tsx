@@ -2,24 +2,29 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import FotoInput from "@/components/FotoInput";
+import RolInput from "@/components/RolInput";
 import { ep, fmtCOP } from "@/lib/etiquetas";
 import { confirmar, exito, fallar } from "@/lib/alertas";
 
 const V = Date.now(); // cache-buster PDFs
 
-type F = { id: number; nombre: string; estado: string; grupo_id: number | null; grupo: string; rol: string; telefono: string; foto: string | null; observaciones: string; dio: number; monto: number };
+type F = { id: number; nombre: string; estado: string; grupo_id: number | null; grupo: string; rol: string; telefono: string; foto: string | null; observaciones: string; dio: number; monto: number; atributo: string };
 const EST = ["ACTIVO", "ASISTENTE", "DISPONIBLE", "APARTADO", "INACTIVO_SALUD"];
+const ATR = ["APARTADO", "ASISTENTE", "DISPONIBLE", "OTRO"];
 
-const VACIO = { id: 0, nombre: "", estado: "ACTIVO", grupo_id: null as number | null, grupo: "", rol: "", telefono: "", foto: null as string | null, observaciones: "", dio: 0, monto: 0 };
+const VACIO = { id: 0, nombre: "", estado: "ACTIVO", grupo_id: null as number | null, grupo: "", rol: "", telefono: "", foto: null as string | null, observaciones: "", dio: 0, monto: 0, atributo: "" };
 
 export default function Personal() {
   const [lista, setLista] = useState<F[]>([]);
+  const [grupos, setGrupos] = useState<{ id: number; nombre: string }[]>([]);
   const [q, setQ] = useState("");
   const [f, setF] = useState("TODOS");
   const [ed, setEd] = useState<typeof VACIO | null>(null);
 
   async function cargar() {
     setLista(await fetch("/api/integrantes").then((x) => x.json()));
+    const g = await fetch("/api/grupos").then((x) => x.json()).catch(() => null);
+    if (g?.grupos) setGrupos(g.grupos);
   }
   useEffect(() => { cargar(); }, []);
 
@@ -59,15 +64,26 @@ export default function Personal() {
           <FotoInput valor={ed.foto} onFoto={(x) => setEd({ ...ed, foto: x })} />
           <label>Nombre *</label>
           <input value={ed.nombre} onChange={(e) => setEd({ ...ed, nombre: e.target.value })} />
-          <label>Estado</label>
-          <select value={ed.estado} onChange={(e) => setEd({ ...ed, estado: e.target.value })}>
-            {EST.map((e) => <option key={e} value={e}>{ep(e)}</option>)}
-          </select>
-          {ed.id !== 0 ? (
-            <p className="s">🎶 Grupo: <b>{ed.grupo || "Sin grupo"}</b> · Rol: <b>{ed.rol || "Por asignar"}</b> <span className="mut">(se edita en Alabanza)</span></p>
-          ) : (
-            <p className="s">🎶 Quedará <b>Sin grupo</b>; el grupo y rol se asignan en Alabanza.</p>
-          )}
+          <div className="row">
+            <div className="grow"><label>Estado</label>
+              <select value={ed.estado} onChange={(e) => setEd({ ...ed, estado: e.target.value })}>
+                {EST.map((e) => <option key={e} value={e}>{ep(e)}</option>)}
+              </select></div>
+            <div className="grow"><label>Atributo</label>
+              <select value={ed.atributo} onChange={(e) => setEd({ ...ed, atributo: e.target.value })}>
+                <option value="">— Ninguno —</option>
+                {ATR.map((e) => <option key={e} value={e}>{ep(e)}</option>)}
+              </select></div>
+          </div>
+          <div className="row">
+            <div className="grow"><label>Rol (sin necesidad de grupo)</label>
+              <RolInput valor={ed.rol} onCambio={(v) => setEd({ ...ed, rol: v })} /></div>
+            <div className="grow"><label>Grupo de voz</label>
+              <select value={ed.grupo_id ?? ""} onChange={(e) => setEd({ ...ed, grupo_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">Sin grupo</option>
+                {grupos.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+              </select></div>
+          </div>
           <label>Teléfono</label>
           <input value={ed.telefono} onChange={(e) => setEd({ ...ed, telefono: e.target.value })} inputMode="tel" />
           <label>Observaciones</label>
@@ -89,7 +105,7 @@ export default function Personal() {
           {i.foto ? <img className="foto" src={`/api/fotos?f=${encodeURIComponent(i.foto)}`} alt="" /> : <div className="ph">👤</div>}
           <div className="grow">
             <div className="t">{i.nombre}</div>
-            <div className="s">{ep(i.estado)} · {i.grupo} · {i.rol || "Por asignar"}</div>
+            <div className="s">{ep(i.estado)}{i.atributo ? ` · ${ep(i.atributo)}` : ""} · {i.grupo} · {i.rol || "Por asignar"}</div>
             {i.telefono ? <div className="s">Tel: {i.telefono}</div> : null}
             <div className="s">{i.dio ? `Alcancía: ${fmtCOP(i.monto)} ✅` : "Alcancía: pendiente ❌"}</div>
             <div className="btnrow">

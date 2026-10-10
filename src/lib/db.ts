@@ -43,14 +43,20 @@ function schema(d: DatabaseSync) {
   for (const col of ["foto2", "foto3"]) {
     if (!colsEq.some((x) => x.name === col)) d.exec(`ALTER TABLE equipos ADD COLUMN ${col} TEXT`);
   }
+  // Atributo del integrante (apartado/asistente/disponible/otro) + alcancía sellada
+  const colsInt = d.prepare("PRAGMA table_info(integrantes)").all() as { name: string }[];
+  if (!colsInt.some((x) => x.name === "atributo")) d.exec("ALTER TABLE integrantes ADD COLUMN atributo TEXT DEFAULT ''");
+  const colsAlc = d.prepare("PRAGMA table_info(alcancia)").all() as { name: string }[];
+  if (!colsAlc.some((x) => x.name === "sellada")) d.exec("ALTER TABLE alcancia ADD COLUMN sellada INTEGER DEFAULT 0");
 }
 
 export type Integrante = {
   id: number; nombre: string; estado: string; grupo_id: number | null;
   rol: string; telefono: string; fecha_ingreso: string; foto: string | null; observaciones: string;
+  atributo: string;
 };
 export type Grupo = { id: number; nombre: string };
-export type Aporte = { id: number; integrante_id: number; dio: number; monto: number; fecha: string };
+export type Aporte = { id: number; integrante_id: number; dio: number; monto: number; fecha: string; sellada: number };
 export type Equipo = {
   id: number; tipo: string; numero: number; nombre: string; estado: string;
   ubicacion: string; foto: string | null; foto2: string | null; foto3: string | null;

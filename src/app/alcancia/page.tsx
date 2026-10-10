@@ -6,22 +6,31 @@ import { confirmar, exito } from "@/lib/alertas";
 
 const V = Date.now(); // cache-buster PDFs
 
-type F = { id: number; nombre: string; dio: number; monto: number };
+type F = { id: number; nombre: string; dio: number; monto: number; sellada: number };
+
+function chipAporte(i: F) {
+  if (!i.dio) return <span className="chip warn">Pendiente</span>;
+  if (i.sellada) return <span className="chip ok">Sellada 🔒</span>;
+  if (i.monto > 0) return <span className="chip ok">Dio {fmtCOP(i.monto)}</span>;
+  return <span className="chip ok">Dio ✅</span>;
+}
 
 export default function Alcancia() {
   const [lista, setLista] = useState<F[]>([]);
   const [total, setTotal] = useState(0);
   const [montos, setMontos] = useState<Record<number, string>>({});
+  const [selladas, setSelladas] = useState<Record<number, boolean>>({});
   async function cargar() {
     const j = await fetch("/api/alcancia").then((x) => x.json());
     setLista(j.lista); setTotal(j.total);
   }
   useEffect(() => { cargar(); }, []);
-  async function marcar(id: number, nombre: string, dio: boolean, monto: number) {
+  async function marcar(id: number, nombre: string, dio: boolean, monto: number, sellada: boolean) {
     if (dio) {
-      if (!await confirmar(`¿${nombre} dio ${fmtCOP(monto)}?`, "Quedará registrado como aporte visible.")) return;
+      const detalle = sellada ? "alcancía sellada" : fmtCOP(monto);
+      if (!await confirmar(`¿${nombre} dio ${detalle}?`, "Quedará registrado como aporte visible.")) return;
     }
-    await fetch("/api/alcancia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ integrante_id: id, dio, monto }) });
+    await fetch("/api/alcancia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ integrante_id: id, dio, monto: sellada ? 0 : monto, sellada }) });
     cargar();
     exito(dio ? "Aporte registrado" : "Marcado pendiente");
   }
@@ -33,21 +42,29 @@ export default function Alcancia() {
       <div className="btnrow">
         <a className="btn sec sm" href={`/api/reportes?kind=alcancia&v=${V}`}>PDF general</a>
       </div>
-      {lista.map((i) => (
-        <div key={i.id} className="card">
-          <div className="row">
-            <div className="grow"><div className="t">{i.nombre}</div>
-              <div className="s">{i.dio ? <span className="chip ok">Dio {fmtCOP(i.monto)}</span> : <span className="chip warn">Pendiente</span>}</div></div>
+      {lista.map((i) => {
+        const esSellada = selladas[i.id] ?? !!i.sellada;
+        return (
+          <div key={i.id} className="card">
+            <div className="row">
+              <div className="grow"><div className="t">{i.nombre}</div>
+                <div className="s">{chipAporte(i)}</div></div>
+            </div>
+            <div className="row" style={{ marginTop: 8 }}>
+              <input style={{ margin: 0 }} placeholder="Monto $" disabled={esSellada}
+                value={esSellada ? "" : (montos[i.id] ?? (i.monto > 0 ? String(i.monto) : ""))}
+                onChange={(e) => setMontos({ ...montos, [i.id]: e.target.value })} inputMode="numeric" />
+              <button className="btn sm" onClick={() => marcar(i.id, i.nombre, true, Number(montos[i.id]) || i.monto || 0, esSellada)}>Dio</button>
+              <button className="btn sec sm" onClick={() => marcar(i.id, i.nombre, false, 0, false)}>Pend.</button>
+            </div>
+            <label className="row" style={{ gap: 6, marginTop: 6 }}>
+              <input type="checkbox" style={{ width: 20 }} checked={esSellada}
+                onChange={(e) => setSelladas({ ...selladas, [i.id]: e.target.checked })} />
+              Alcancía sellada (sin monto visible)
+            </label>
           </div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <input style={{ margin: 0 }} placeholder="Monto $"
-              value={montos[i.id] ?? (i.monto > 0 ? String(i.monto) : "")}
-              onChange={(e) => setMontos({ ...montos, [i.id]: e.target.value })} inputMode="numeric" />
-            <button className="btn sm" onClick={() => marcar(i.id, i.nombre, true, Number(montos[i.id]) || i.monto || 0)}>Dio</button>
-            <button className="btn sec sm" onClick={() => marcar(i.id, i.nombre, false, 0)}>Pend.</button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </Shell>
   );
 }

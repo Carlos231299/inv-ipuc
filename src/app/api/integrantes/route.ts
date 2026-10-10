@@ -21,9 +21,9 @@ export async function POST(req: Request) {
   if (!b.nombre?.trim()) return NextResponse.json({ error: "nombre" }, { status: 400 });
   const d = db();
   const r = d.prepare(
-    "INSERT INTO integrantes (nombre, estado, grupo_id, rol, telefono, fecha_ingreso, foto, observaciones) VALUES (?,?,?,?,?,?,?,?)"
-  ).run(b.nombre.trim(), b.estado || "ACTIVO", b.grupo_id ?? null, b.rol || "Voz",
-    b.telefono || "", "2026", b.foto || null, b.observaciones || "");
+    "INSERT INTO integrantes (nombre, estado, grupo_id, rol, telefono, fecha_ingreso, foto, observaciones, atributo) VALUES (?,?,?,?,?,?,?,?,?)"
+  ).run(b.nombre.trim(), b.estado || "ACTIVO", b.grupo_id ?? null, b.rol || "",
+    b.telefono || "", "2026", b.foto || null, b.observaciones || "", b.atributo || "");
   const id = Number(r.lastInsertRowid);
   d.prepare("INSERT INTO alcancia (integrante_id, dio, monto, fecha) VALUES (?,?,?,?)")
     .run(id, b.dio ? 1 : 0, Number(b.monto) || 0, b.dio ? "2026" : "");
@@ -34,8 +34,8 @@ export async function PUT(req: Request) {
   const n = await ok(); if (n) return n;
   const b = await req.json();
   const d = db();
-  d.prepare("UPDATE integrantes SET nombre=?, estado=?, grupo_id=?, rol=?, telefono=?, foto=?, observaciones=? WHERE id=?")
-    .run(b.nombre.trim(), b.estado, b.grupo_id ?? null, b.rol, b.telefono || "", b.foto || null, b.observaciones || "", b.id);
+  d.prepare("UPDATE integrantes SET nombre=?, estado=?, grupo_id=?, rol=?, telefono=?, foto=?, observaciones=?, atributo=? WHERE id=?")
+    .run(b.nombre.trim(), b.estado, b.grupo_id ?? null, b.rol || "", b.telefono || "", b.foto || null, b.observaciones || "", b.atributo || "", b.id);
   const ex = d.prepare("SELECT id FROM alcancia WHERE integrante_id=?").get(b.id) as { id: number } | undefined;
   if (ex) d.prepare("UPDATE alcancia SET dio=?, monto=? WHERE integrante_id=?").run(b.dio ? 1 : 0, Number(b.monto) || 0, b.id);
   else d.prepare("INSERT INTO alcancia (integrante_id, dio, monto) VALUES (?,?,?)").run(b.id, b.dio ? 1 : 0, Number(b.monto) || 0);

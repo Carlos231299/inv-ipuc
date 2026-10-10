@@ -12,6 +12,7 @@ export const ESTADO_PERSONA: Record<string, string> = {
   DISPONIBLE: "Disponible",
   APARTADO: "Apartado",
   INACTIVO_SALUD: "Inactivo · salud",
+  OTRO: "Otro",
 };
 
 export const eq = (v: string) => ESTADO_EQUIPO[v] ?? v;

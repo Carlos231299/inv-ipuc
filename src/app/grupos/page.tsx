@@ -169,7 +169,7 @@ export default function Grupos() {
                   {editando ? (
                     <>
                       <label>Rol</label>
-                      <RolInput valor={m.rol} onCambio={(v) => cambiarRol(m.id, v)} />
+                      <RolInput valor={m.rol} conBoton onCambio={(v) => cambiarRol(m.id, v)} />
                       <div className="row">
                         <select style={{ margin: 0 }} value={g.id} onChange={(e) => mover(m.id, m.nombre, e.target.value)}>
                           {gs.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}

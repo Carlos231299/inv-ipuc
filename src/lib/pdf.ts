@@ -377,10 +377,12 @@ export async function buildPdf(kind: ReportKind): Promise<Uint8Array> {
   if (kind === "alcancia" || kind === "general") {
     if (kind === "general") await tituloSeccion(c, "3. Alcancía / voto");
     const rows = d.prepare(
-      `SELECT i.nombre, a.dio, a.monto FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
-       WHERE i.estado='ACTIVO' ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number }[];
+      `SELECT i.nombre, a.dio, a.monto, COALESCE(a.sellada,0) AS sellada FROM integrantes i LEFT JOIN alcancia a ON a.integrante_id=i.id
+       WHERE i.estado IN ('ACTIVO','ASISTENTE','DISPONIBLE') ORDER BY i.nombre`).all() as { nombre: string; dio: number; monto: number; sellada: number }[];
+    const celdaMonto = (r: { dio: number; monto: number; sellada: number }) =>
+      !r.dio ? "—" : r.sellada ? "Sellada" : r.monto > 0 ? fmtCOP(r.monto) : "Dio";
     await tabla(c, [{ t: "Integrante", w: 300 }, { t: "Estado", w: 100 }, { t: "Monto", w: 115 }],
-      rows.map((r) => [r.nombre, r.dio ? "Dio" : "Pendiente", r.dio ? fmtCOP(r.monto) : "—"]));
+      rows.map((r) => [r.nombre, r.dio ? "Dio" : "Pendiente", celdaMonto(r)]));
     c.y -= 10; // aire: la nota no va pegada a la última celda
     await parrafo(c, `Total recogido: ${fmtCOP(totalRecogido())} · Dieron ${rows.filter((r) => r.dio).length} de ${rows.length}.`);
   }
@@ -450,7 +452,8 @@ export async function buildFicha(tipo: "integrante" | "equipo", id: number): Pro
     }
     await tabla(c, [{ t: "Campo", w: 150 }, { t: "Valor", w: 365 }], [
       ["Nombre", String(r.nombre)], ["Estado", ep(String(r.estado))],
-      ["Grupo", nombreDe(Number(r.grupo_id))], ["Rol", String(r.rol)],
+      ["Atributo", r.atributo ? ep(String(r.atributo)) : "—"],
+      ["Grupo", nombreDe(Number(r.grupo_id))], ["Rol", String(r.rol) || "—"],
       ["Teléfono", String(r.telefono || "—")], ["Observaciones", String(r.observaciones || "—")],
     ]);
   } else {
